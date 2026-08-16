@@ -1,0 +1,5 @@
+{
+  "name": "Remote Development",
+  "port": 9229,
+  "forwardPorts": ["9229"]
+}

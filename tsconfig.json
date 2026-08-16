@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    "rootDir": "src",
+    "outDir": "dist",
+
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "src/types/generator/openai.js"],
+  "exclude": ["node_modules", "dist"]
+}

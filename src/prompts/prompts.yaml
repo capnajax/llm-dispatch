@@ -1,0 +1,205 @@
+defaults:
+  maxTokens: 500
+  temperature: 0.5
+
+grammar:
+  # GGML BNF grammar declarations when I want the result to be in a specific
+  # format
+  intent: |
+    root ::= "{" intent s tone (s complexity)? "}"
+
+    pnn-val ::= "\"positive\"" | "\"neutral\"" | "\"negative\"" 
+    intent-val ::= "\"develop\"" | "\"question\"" | "\"analysis\"" | "\"retry\""
+    hml-val ::= "\"high\"" | "\"medium\"" | "\"low\""
+
+    intent ::= "\"intent\": {\"value\": " intent-val s c "}"
+    tone   ::= "\"tone\": {\"value\": " pnn-val s c "}"
+    complexity ::= "\"complexity\": {\"value\": " hml-val s c "}"
+
+    c ::= "\"confidence\": " ("100" | ([1-9])?[0-9])
+    s ::= ", "
+    ws ::= [ \t\n]*
+
+  satisfaction: |
+    root ::= "satisfaction: " pnn-val "\nconfidence: " c ("\n" issues)? "\n"
+
+    pnn-val ::= "positive" | "neutral" | "negative"
+    c ::= "100" | "0" | digit | two-digit
+
+    digit ::= [0-9]
+    one-digit ::= [1-9]
+    two-digit ::= one-digit digit
+
+    issues ::= [^\x00-\x1f\x7f]+
+
+prompts:
+  intent: 
+    grammar:
+      ref: intent
+    message:
+      role: system
+      content: |
+        Classify in these categories and rate confidence of each classification
+        on a scale of 0-100.
+        1. intent:
+              'develop' the user is asking to generate new assets
+              'question' the user is asking general questions about something
+              'analysis' the user wants you to review something and find an
+                answer about it
+              'retry' the main purpose of this request is to ask the AI to try
+                again on the previous request
+        2. tone, which indicates the level of satisfaction with how the
+          conversation is going. Previous messages are not included in this
+          request; just try to determine the satisfaction from the current
+          request:
+            - All `retry` requests are `{"value":"negative","confidence":100}`
+            - Positive, negative, neutral can be evaluated by direct user
+              feedback (e.g. "You're spiralling", "Making progress!", etc) or
+              the emotional tone of the language used.
+        3. Predict the complexity of the answer. A low-complexity answer should
+          be easily provided by an 8B model, where a high-complexity answer
+          should be quite difficult, even for a 27B model.
+    properties:
+      model: intent-classifier
+      temperature: 0.0
+      max_tokens: 500
+  satisfaction:
+    message:
+      role: system
+      content: |
+        Please rate the context of the conversation with relation to the current
+        request. There are two fields in the output; this is how I want you to
+        set them:
+
+        `satisfaction`: If the conversation is progressing, the `satisfaction`
+          is `high`, but if it's going in circles, rate the satisfaction as
+          `low`. A conversation going sideways, no real direction, is `medium`
+        `confidence` is how confident, on a scale of 0 to 100, you are in your
+          rating of the user's satisfaction.
+          
+        If, in scanning the conversation, you see the user is having a problem
+        with how this conversation is going, you may write them in as free-form
+        text after the two fields above. Please keep two important things in
+        mind:
+          1. Brevity is important. Don't ramble and don't write anything
+             unnecessary, and
+          2. We're just looking at the quality of the user's and AI's
+             interaction. You are not here to summarize the conversation.
+    properties:
+      model: context-satisfaction-classifier
+      temperature: 0.5
+      max_tokens: 500
+
+examples:
+  intent:
+    script: |
+      echo '{
+        "model": "intent-classifier",
+        "temperature": 0.0,
+        "max_tokens": 500}' | \
+      jq '.grammar = $g |
+        .messages = [
+          { role: "system", content: $p},
+          { role: "user", content: $u}
+        ]' \
+        --arg g "$(cat prompts.yaml | yq .grammar.intent)" \
+        --argjson c "$(cat prompts.yaml | \
+            yq .examples.intent.context -o json )" \
+        --arg p "$(cat prompts.yaml | yq .prompts.intent)" \
+        --arg u "$(cat prompts.yaml | \
+            yq '.examples.intent["user request"]')" | \
+      curl -X POST http://localhost:8081/v1/chat/completions \
+        -H 'Content-Type: application/json' -T - | jq
+    user request: Can you do it again in PowerPC assembly?
+    context: []
+  satisfaction:
+    script: |
+      echo '{
+        "model": "context-satisfaction-classifier",
+        "temperature": 0.0,
+        "max_tokens": 100}' | \
+      jq '.grammar = $g |
+        .messages = $c + [
+          { role: "system", content: $p},
+          { role: "user", content: $u}
+        ]' \
+        --arg g "$(cat prompts.yaml | yq .grammar.satisfaction)" \
+        --argjson c "$(cat prompts.yaml | \
+          yq .examples.satisfaction.context -o json )" \
+        --arg p "$(cat prompts.yaml | yq .prompts.satisfaction)" \
+        --arg u "$(cat prompts.yaml | \
+          yq '.examples.satisfaction["user request"]')" | \
+      curl -X POST http://localhost:8081/v1/chat/completions \
+        -H 'Content-Type: application/json' -T - | jq
+    user request: Can you do it again in PowerPC assembly?
+    context:
+      - role: user,
+        content: Write a hello-world program in ARM assembly
+      - role: assistant,
+        content: "Here's a simple \"Hello, World!\" program in ARM assembly language.\n\n```assembly\n; This is a comment, anything after a semicolon is ignored by the assembler.\n\n; The first line specifies the architecture of the ARM processor.\n; The second line specifies the endianness of the processor (little-endian).\n; The third line is the entry point of the program.\n\n.arch armv7\n.fpu vfpv2\n.eabi_attribute 28, 1\n.eabi_attribute 20, (a + p)\n.eabi_attribute 21, 1\n.eabi_attribute 23, 3\n.eabi_attribute 8, 1\n.eabi_attribute 34, 0\n.eabi_attribute 17, 1\n.eabi_attribute 18, 4\n.eabi_attribute 19, 1\n.eabi_attribute 37, 0\n.eabi_attribute 35, 0\n.eabi_attribute 16, 1\n.eabi_attribute 10, \"AARCH64\"\n\n.entry _start\n\n; The _start function is the entry point of the program.\n; It is defined with the .globl directive so that it is globally visible.\n\n.section .text\n.globl _start\n\n_start:\n    ; The program starts by loading the address of the string \"Hello, World!\\n\"\n    ; into the R0 register.\n    LDR R0, =message\n\n    ; The BL (Branch with Link) instruction branches to the printf function.\n    ; The R0 register is passed to the printf function as an argument.\n    BL printf\n\n    ; The BX instruction branches to the address in the R7 register.\n    ; The R7 register contains the address of the program that should be executed next.\n    ; In this case, the program should exit.\n    BX LR\n\n; The message string is defined with the .globl directive so that it is globally visible.\n.section .rodata\n.globl message\nmessage:\n    .asciz \"Hello, World!\\n\"\n```\n\nThis program is written in ARMv7 assembly language. The `printf` function is assumed to be implemented in a library, so the program should be compiled with the `-lc` flag to link against the library.\n\nIf you want to run this program, you will need to provide a printf function and a main function to call the _start function.\n\nHere is a simple version of printf in ARM assembly language:\n\n```assembly\n.section .text\n.globl printf\n\nprintf:\n    ; The program starts by comparing the character in R0 to 0.\n    CMP R0, #0\n\n    ; If the character is not 0, it is printed to the console.\n    BE done\n\n    ; The LDRB instruction loads the character into the R1 register.\n    LDRB R1, [R0]\n\n    ; The BLT instruction branches to the printf function with the argument incremented.\n    BLT printf\n\n    ; The program prints the character by loading it into the R0 register and calling the printf function.\n    MOV R0, R1\n    BL printf\n\ndone:\n    ; The program returns with the value 0.\n    MOV R7, #0\n    BX LR\n```\n\nPlease note that the printf function in the above code is a very simple version and may not work correctly in all situations.\n\nAlso note that this is a very basic example and in real-world assembly programming, you would typically want to use a higher-level language like C."
+      - role: user,
+        content: "Can you show me the same in x86 assembly?"
+      - role: assistant,
+        content: "Here's the same \"Hello, World!\" program in x86 assembly language.\n\n```assembly\n; This is a comment, anything after a semicolon is ignored by the assembler.\n\n; The first line specifies the architecture of the processor.\n; The .model directive specifies the memory model used by the assembler.\n; The .code directive specifies that the following instructions are code.\n\n.model small\n.code\n\n; The program starts with the org directive, which specifies the starting address.\norg 100h\n\n; The mov ah, 9 instruction loads 9 into the AH register, which is the print service number.\nmov ah, 9\n\n; The mov dx, offset message instruction loads the address of the string \"Hello, World!\\n\" into the DX register.\n; This is where the string is stored.\nmov dx, offset message\n\n; The int 21h instruction calls the print service.\nint 21h\n\n; The mov ah, 4ch instruction loads 4ch into the AH register, which is the exit service number.\nmov ah, 4ch\n\n; The xor al, al instruction loads 0 into the AL register, which is the return code.\nxor al, al\n\n; The int 21h instruction calls the exit service.\nint 21h\n\n; The message string is defined with the db directive.\n; The db directive specifies that the following bytes are data.\nmessage:\n    db 'Hello, World!', 13, 10, '$'\n\n; The end directive signals the end of the program.\nend\n```\n\nThis program is written in 16-bit x86 assembly language and uses the DOS API. The program starts at address 100h (hexadecimal 256) and prints the string \"Hello, World!\\n\" followed by a newline.\n\nHere's a breakdown of what the program does:\n\n1.  It loads the print service number (9) into the AH register.\n2.  It loads the address of the string \"Hello, World!\\n\" into the DX register.\n3.  It calls the print service with the int 21h instruction.\n4.  It loads the exit service number (4ch) into the AH register.\n5.  It loads 0 into the AL register, which is the return code.\n6.  It calls the exit service with the int 21h instruction.\n\nPlease note that this is a very basic example and in real-world assembly programming, you would typically want to use a higher-level language like C. Also, this program is written for 16-bit DOS and may not work correctly in other environments.\n\nIf you want to run this program, you will need to assemble it with a 16-bit assembler, such as MASM (Microsoft Macro Assembler), and then link it with a linker that supports 16-bit code, such as Link (Microsoft Linker)."
+      - role: user,
+        content: "And in m68k assembly?"
+      - role: assistant,
+        content: |
+          Here's the same "Hello, World!" program in m68k assembly language.
+
+          ```assembly
+
+          ; This is a comment, anything after a semicolon is ignored by the assembler.
+
+          ; The first line specifies the architecture of the processor.
+          ; The .org directive specifies the starting address.
+          .org 0
+
+          ; The .text directive specifies that the following instructions are code.
+          .text
+          ; The .globl directive specifies that the following symbol is globally visible.
+          .globl _start
+
+          ; The _start function is the entry point of the program.
+          _start:
+              ; The lea instruction loads the address of the string "Hello, World!\n" into the A0 register.
+              lea a0, message
+
+              ; The move instruction moves the value 4 into the D0 register, which is the length of the string.
+              move d0, #4
+
+              ; The move instruction moves the value 1 into the D1 register, which is the number of arguments.
+              move d1, #1
+
+              ; The trap instruction calls the print_string function.
+              trap #15
+
+              ; The move instruction moves the value 0 into the D0 register, which is the return code.
+              move d0, #0
+
+              ; The trap instruction calls the exit function.
+              trap #8
+
+          ; The message string is defined with the .asciz directive.
+          ; The .asciz directive specifies that the following string is a character string.
+          message:
+              .asciz "Hello, World!\n"
+
+          ; The end directive signals the end of the program.
+          .end
+          This program is written in m68k assembly language and uses the Unix API. The program starts at address 0 and prints the string "Hello, World!\n".
+          ```
+
+          Here's a breakdown of what the program does:
+
+          1. It loads the address of the string "Hello, World!\n" into the A0 register.
+          1. It loads the length of the string (4) into the D0 register.
+          1. It loads the number of arguments (1) into the D1 register.
+          1. It calls the print_string function with the trap #15 instruction.
+          1. It loads the return code (0) into the D0 register.
+          1. It calls the exit function with the trap #8 instruction.
+
+          Please note that this is a very basic example and in real-world assembly programming, you would typically want to use a higher-level language like C. Also, this program is written for Unix systems and may not work correctly in other environments.
+
+          If you want to run this program, you will need to assemble it with a m68k assembler, such as the GNU assembler (gas), and then link it with a linker that supports m68k code, such as the GNU linker (ld).
+

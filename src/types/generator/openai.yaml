@@ -1,0 +1,188 @@
+logging:
+  level: info
+  transport:
+    type: console
+swaggar: swaggar/openai-swaggar.yaml
+blocks:
+  head: |
+    /**
+     * @module openai-types
+     * Schemas from the OpenAI swaggar translated into types, interfaces, and
+     * typeguards for TypeScript. Only the types requested for export are
+     * actually exported, and only the same plus all their dependencies are
+     * generated.
+     */
+
+     // ** ** ** ** ** ** DO NOT MODIFY ** ** ** ** ** ** **
+     // This is generated code. `npm run generate` to update
+     // ** ** ** ** ** ** DO NOT MODIFY ** ** ** ** ** ** **
+
+  mid: |
+    /*
+     * The types below are not exported, but exist because the types that are
+     * exported depend on them.
+     */
+types:
+
+  # Types I require generated
+  export:
+    - ChatCompletionRequestMessage
+    - ChatCompletionStreamResponseDelta
+    - CreateChatCompletionResponse
+    - CreateChatCompletionStreamResponse
+    - CreateChatCompletionRequest
+    - ReasoningEffort
+    - ResponseFormatText
+    - ResponseFormatJsonSchema
+    - ResponseFormatJsonObject
+
+  # Properties of objects I want to ignore
+  omissions:
+    'CreateChatCompletionRequest[1]':
+      - audio
+
+  # Post-read processing actions on types. This is to modify types before they
+  # are read. The type doesn't have to be one listed above. Any types here that
+  # are neither named as "required" nor included by reference are simply
+  # ignored.
+  postReadActions: []
+
+  specifiedTypes:
+    # CreateChatCompletionStreamResponse:
+    #   type: object
+    #   object:
+    #     properties:
+    #       id:
+    #         name: id
+    #         spec:
+    #           type: string
+    #           description: A unique identifier for the chat completion. Each chunk has the same ID.
+    #         required: true
+    #       choices:
+    #         name: choices
+    #         spec:
+    #           type: array
+    #           items:
+    #             type: object
+    #             object:
+    #               properties:
+    #                 delta:
+    #                   name: delta
+    #                   spec:
+    #                     type: ref
+    #                     ref: ChatCompletionStreamResponseDelta
+    #                   required: true
+    #                 logprobs:
+    #                   name: logprobs
+    #                   spec:
+    #                     type: object
+    #                     object:
+    #                       properties:
+    #                         content:
+    #                           name: content
+    #                           spec:
+    #                             type: array
+    #                             items:
+    #                               type: ref
+    #                               ref: ChatCompletionTokenLogprob
+    #                             description: A list of message content tokens with log probability information.
+    #                             nullable: true
+    #                           required: true
+    #                         refusal:
+    #                           name: refusal
+    #                           spec:
+    #                             type: array
+    #                             items:
+    #                               type: ref
+    #                               ref: ChatCompletionTokenLogprob
+    #                             description: A list of message refusal tokens with log probability information.
+    #                             nullable: true
+    #                           required: true
+    #                       additionalProperties: false
+    #                     description: Log probability information for the choice.
+    #                     nullable: true
+    #                   required: false
+    #                 finish_reason:
+    #                   name: finish_reason
+    #                   spec:
+    #                     type: string
+    #                     description: |
+    #                       The reason the model stopped generating tokens. This will be `stop` if the model hit a natural stop point or a provided stop sequence,
+    #                       `length` if the maximum number of tokens specified in the request was reached,
+    #                       `content_filter` if content was omitted due to a flag from our content filters,
+    #                       `tool_calls` if the model called a tool, or `function_call` (deprecated) if the model called a function.
+    #                     nullable: true
+    #                     enum:
+    #                       - stop
+    #                       - length
+    #                       - tool_calls
+    #                       - content_filter
+    #                       - function_call
+    #                   required: true
+    #                 index:
+    #                   name: index
+    #                   spec:
+    #                     type: integer
+    #                     description: The index of the choice in the list of choices.
+    #                   required: true
+    #               additionalProperties: false
+    #           description: |
+    #             A list of chat completion choices. Can contain more than one elements if `n` is greater than 1. Can also be empty for the
+    #             last chunk if you set `stream_options: {"include_usage": true}`.
+    #         required: true
+    #       created:
+    #         name: created
+    #         spec:
+    #           type: integer
+    #           description: The Unix timestamp (in seconds) of when the chat completion was created. Each chunk has the same timestamp.
+    #           format: unixtime
+    #         required: true
+    #       model:
+    #         name: model
+    #         spec:
+    #           type: string
+    #           description: The model to generate the completion.
+    #         required: true
+    #       service_tier:
+    #         name: service_tier
+    #         spec:
+    #           type: ref
+    #           ref: ServiceTier
+    #         required: false
+    #       system_fingerprint:
+    #         name: system_fingerprint
+    #         spec:
+    #           type: string
+    #           description: |
+    #             This fingerprint represents the backend configuration that the model runs with.
+    #             Can be used in conjunction with the `seed` request parameter to understand when backend changes have been made that might impact determinism.
+    #         required: false
+    #       object:
+    #         name: object
+    #         spec:
+    #           type: string
+    #           description: The object type, which is always `chat.completion.chunk`.
+    #           enum:
+    #             - chat.completion.chunk
+    #         required: true
+    #       usage:
+    #         name: usage
+    #         spec:
+    #           type: ref
+    #           ref: CompletionUsage
+    #         required: false
+    #     additionalProperties: false
+    #   description: "Represents a streamed chunk of a chat completion response returned\nby the model, based on the provided input. \n[Learn more](/docs/guides/streaming-responses).\n"
+
+    ModelIdsShared:
+      type: anyOf
+      union:
+        - type: string
+        - type: string
+          enum:
+          - default
+          - classify
+          - escalate
+
+# functions to include for specific validations (e.g. range)
+validators: {}

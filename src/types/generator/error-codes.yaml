@@ -1,0 +1,92 @@
+logging:
+  level: info
+  transport:
+    type: console
+
+blocks:
+  head: |
+    /**
+     * @module error-codes
+     * Error codes for use with the error management
+     */
+
+     // ** ** ** ** ** ** DO NOT MODIFY ** ** ** ** ** ** **
+     // This is generated code. `npm run generate` to update
+     // ** ** ** ** ** ** DO NOT MODIFY ** ** ** ** ** ** **
+
+modules:
+  - name: general
+    description: |
+      General codes used in multiple places throughout the sources.
+    codes:
+      ERROR:
+        message: An error has occured
+        description: A catch-all for any unknown error.
+      FAILED_ASSERTION:
+        message: Assertion failed
+        description: |
+          An assertion failed. Information about which assertion failed should
+          be included in the details.
+      INTERNAL_ERROR:
+        message: Internal error
+        description: |
+          A supposedly "impossible" error but is tripped by a code defect.
+      NOT_READY:
+        message: Not ready
+        description: |
+          Attempted to access an object before it's ready
+
+  - name: dispatch
+    description: Codes used by the dispatcher that calls different AI endpoints
+    codes:
+      DISPATCH_OFFLINE:
+        message: AI Endpoint is offline
+        description: |
+          All the end points available to the host are offline
+        statusCode: 503
+      DISPATCH_TIMEOUT:
+        message: Request timed out
+        statusCode: 504
+      DISPATCH_BODY_EMPTY:
+        message: Request body empty
+        description: |
+          Used when a message body is expected, but it's actually empty.
+        statusCode: 400
+      DISPATCH_BODY_PARSE:
+        message: Request body failed to parse
+        statusCode: 400
+      DISPATCH_BODY_TYPE:
+        message: Request body of incorrect format
+        statusCode: 400
+      DISPATCH_HTTP_ERROR:
+        message: Failed to send request to backend
+        statusCode: 500
+
+  - name: net
+    description: Codes used for general networking issues.
+    codes:
+      NET_INVALID_URL:
+        message: URL string is not valid
+      NET_SCHEME:
+        message: Scheme unsupported
+        description: |
+          Thrown when the URL scheme (e.g. the `myapp` in `myapp://example.com`)
+          is not supported. Details should be an object that looks like
+          `{scheme: 'myapp', supported: ['http', 'https']}`
+
+  - name: httpRequest
+    description: Codes used for HTTP request issues. This is for requests to
+      the proxy service
+    codes:
+      REQ_BODY_EMPTY:
+        message: Request body empty
+        description: |
+          Used when a message body is expected, but it's actually empty.
+        statusCode: 400
+      REQ_BODY_PARSE:
+        message: Request body failed to parse
+        statusCode: 400
+      REQ_BODY_TYPE:
+        message: Request body of incorrect format
+        statusCode: 400
+

@@ -1,0 +1,83 @@
+defaults:
+  connectivity:
+    modes:
+      - name: connected
+        displayName: Connected
+        icon: full
+      - name: local
+        displayName: Local
+        icon: half
+      - name: offline
+        displayName: Offline
+        icon: empty
+      - name: partial-27b
+        displayName: 27B-only
+        icon: half
+      - name: partial-8b
+        displayName: 8B-only
+        icon: half
+    probe:
+      min: 20s
+      max: 5m
+
+hosts:
+  gridscale:
+    connectivity:
+      modes:
+        - name: connected
+          if:
+            - healthy: http://localhost:8081/health
+            - healthy: http://localhost:8087/health
+          basePaths:
+            classify: http://localhost:8081
+            default: http://localhost:8081
+            escalate: http://localhost:8087
+        - name: partial-8b
+          if:
+            - healthy: http://localhost:8081/health
+          basePaths:
+            default: http://localhost:8081
+        - name: partial-27b
+          if:
+            - healthy: http://localhost:8087/health
+          basePaths:
+            default: http://localhost:8087
+        - name: offline
+  lfp:
+    connectivity:
+      probe:
+        max: 1m
+      modes:
+        - name: connected
+          if:
+            - healthy: http://gridscale.home.rocketcode.dev:10101/health
+          basePaths:
+            default: http://gridscale.home.rocketcode.dev:10101/health
+        - name: local
+          if:
+            - healthy: http://localhost:8081/health
+          basePaths:
+            default: http://gridscale.home.rocketcode.dev:10101/health
+        - name: offline
+
+logging:
+  level: info
+  modules:
+    # config:
+    #   methods:
+    #     loadConfig:
+    #       level: silly
+    # dispatch:
+    #   methods:
+    #     fetchConnectivityMode:
+    #       level: silly
+    #     getConnectivityMode:
+    #       level: silly
+    # routes/meta:
+    #   level: debug
+    # server:
+    #   level: debug
+    # middleware/endpoint-logging:
+    #   level: info
+    '[export-log-finalizer]':
+      level: http
