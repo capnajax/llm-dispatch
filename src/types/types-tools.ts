@@ -90,9 +90,9 @@ export function tv(
     let subject = oo;
     let doTests = true;
     if (member) {
-      if (typeof subject === 'object') {
+      if (typeof subject === 'object' && subject !== null) {
         subject = subject[member];
-        subjectPath = `${path}.${member}`;
+        subjectPath = path ? `${path}.${member}` : path;
         if (subject === undefined) {
           if (required) {
             errors = [path ? `${path}.${member} is required` : E];
@@ -100,8 +100,10 @@ export function tv(
             doTests = false;
           }
         }
+      } else if (subject === null) {
+        errors = [path ? `${path} is null` : E];
       } else {
-        errors = [path ? `${oo} is not an object` : E];
+        errors = [path ? `${path} is not an object` : E];
       }
     }
     if (!errors.length && doTests) {
@@ -143,9 +145,9 @@ export function tva(
     let subject = oo;
     let doTests = true;
     if (member) {
-      if (typeof subject === 'object') {
+      if (typeof subject === 'object' && subject !== null) {
         subject = subject[member];
-        subjectPath = `${path}.${member}`;
+        subjectPath = path ? `${path}.${member}` : path;
         if (subject === undefined) {
           if (required) {
             errors = [path ? `${path}.${member} is required` : E];
@@ -153,6 +155,8 @@ export function tva(
             doTests = false;
           }
         }
+      } else if (subject === null) {
+        errors = [path ? `${oo} is null` : E];
       } else {
         errors = [path ? `${oo} is not an object` : E];
       }
@@ -169,7 +173,7 @@ export function tva(
           })
         ).flat());
       } else {
-        result.push(path ? `${subjectPath} must be an array` : E);
+        errors.push(path ? `${subjectPath} must be an array` : E);
       }
     }
     result.push(...errors);
@@ -235,7 +239,7 @@ export function doTests(
           result.push(format(test.message, subjectPath));
         }
       } else {
-        result.push(E);
+        test.message && result.push(E);
       }
     }
   }

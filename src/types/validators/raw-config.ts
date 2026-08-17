@@ -71,7 +71,7 @@ export function normalizeConfig(
   let _hasErrors = false;
   const errors:{push:(...v:string[][])=>void} = path
     ? new Array<string[]>()
-    : {push: ()=>{_hasErrors = true}};
+    : {push: (...v:string[][])=>{v.flat().length && (_hasErrors = true)}};
   const hasErrors = () => {
     if (Array.isArray(errors)) {
       const filteredErrors = errors.filter(e => e.length);
@@ -89,7 +89,7 @@ export function normalizeConfig(
     }
   }
   const combinedProbe:Partial<ConfigServiceConfigProbeInterval> = {
-    ...(s.defaults.connectivity.probe||{}),
+    ...(s.defaults?.connectivity?.probe||{}),
     ...(s.hosts[hostname].connectivity.probe||{})
   };
 
@@ -131,7 +131,7 @@ export function normalizeConfig(
 
   for (const hcm of s.hosts[hostname].connectivity.modes) {
     const combinedMode:PartialOnlineServiceConfigMode = {
-      ...(s.defaults.connectivity.modes.find(m => m.name === hcm.name)),
+      ...(s.defaults?.connectivity?.modes?.find(m => m.name === hcm.name)||{}),
       ...(hcm)
     };
     if (hcm.name === OFFLINE_MODE) {
@@ -154,7 +154,7 @@ export function normalizeConfig(
   if (hasErrors()) {
     if (Array.isArray(errors)) {
       const result:string[] = [];
-      result.push(...errors);
+      result.push(...errors.flat());
       return { valid: false, errors: result };
     } else {
       return { valid: false };
@@ -176,6 +176,8 @@ export function normalizeConfigServiceConfigProbeIntervalValue(
   let s = o as string|number;
   if (typeof s === 'number') {
     return { valid: true, value: s };
+  } else if (s !== '' && !isNaN(Number(s))) {
+    return { valid: true, value: Number(s)}
   } else {
     s = s.trim();
     const match = s.match(/(\d+)([a-z]+)/) as string[];
@@ -216,7 +218,7 @@ export function validateConfigAsLoaded(o: any, path?:string): string[] {
       } else if (typeof o?.defaults?.connectivity === 'object') {
         // this is the desired path
         const subjectPath = path ? `${path}.defaults` : path;
-        validateConfigHostConfig(o.defaults, path);
+        result.push(...validateConfigHostConfig(o.defaults, subjectPath))
       } else if (typeof o === 'object' && (
         (o.defaults === undefined) || (
           typeof o.defaults === 'object' &&

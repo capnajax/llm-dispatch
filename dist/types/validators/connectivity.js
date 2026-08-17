@@ -32,9 +32,16 @@ function validateBasePaths(o, path) {
     log.silly('called on {path, o}: %s', inspect({ path, o }, D3));
     const result = [];
     if (typeof o === 'object') {
+        let hasDefault = false;
         for (const k in o) {
             const kPath = path ? `${path}.${k}` : path;
             result.push(...validateBasePathType(k, kPath), ...validateBasePath(o[k], kPath));
+            if (k === 'default') {
+                hasDefault = true;
+            }
+        }
+        if (!hasDefault) {
+            result.push(path ? `${path} has no default base path` : E);
         }
     }
     else {
@@ -112,7 +119,7 @@ function validateBasePathType(o, path) {
     const result = [];
     log.silly('called on {path, o}: %s', inspect({ path, o }, D3));
     if (typeof o === 'string' && !permittedBasePathTypeValues.includes(o)) {
-        result.push(format('%s is not a basePath type key', path));
+        result.push(path ? format('%s is not a basePath type key', path) : E);
     }
     logResult(result, log);
     return result;
@@ -122,7 +129,7 @@ function validateIcon(o, path) {
     const result = [];
     log.silly('called on {path, o}: %s', inspect({ path, o }, D3));
     if (!(typeof o === 'string' && permittedIconValues.includes(o))) {
-        result.push(format('%s is not a valid icon value', path));
+        result.push(path ? format('%s is not a valid icon value', path) : E);
     }
     logResult(result, log);
     return result;
@@ -198,6 +205,9 @@ export function validateServiceConfigProbeCondition(o, path) {
     if (typeof o !== 'object') {
         result.push(path ? `${path} must be an object` : E);
     }
+    else if (o === null) {
+        result.push(path ? `${path} must not be null` : E);
+    }
     else {
         let numConditionsInCondition = 0;
         if (o.healthy) {
@@ -209,8 +219,11 @@ export function validateServiceConfigProbeCondition(o, path) {
                 result.push(path ? `${path}.healthy cannot parse into a URL string` : E);
             }
         }
-        if (numConditionsInCondition !== 1) {
+        if (numConditionsInCondition > 1) {
             result.push(path ? `${path} too many conditions in condition` : E);
+        }
+        else if (numConditionsInCondition === 0) {
+            result.push(path ? `${path} no conditions in condition` : E);
         }
     }
     logResult(result, log);

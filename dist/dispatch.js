@@ -3,7 +3,7 @@ import { error, errorAsObject } from "./lib/exceptions.js";
 import { aiEndpointRequest, checkHealth, createHtRequest, parseRequestBody } from "./lib/http-tools.js";
 import { getLogger } from "./lib/logger.js";
 import { DISPATCH_OFFLINE, ERROR, isErrorCode, REQ_BODY_EMPTY } from "./types/generated/error-codes.js";
-import { isCreateChatCompletionRequest } from "./types/generated/openai-types.js";
+import { isCreateChatCompletionRequest } from "./types/generated/openai-types-clamps.js";
 import { isOnlineServiceConfigMode } from "./types/types.js";
 import { getPromptConfigData } from "./prompts/prompts.js";
 import { parseIntent, parseSatisfaction } from "./prompts/prompts-types.js";
@@ -44,21 +44,32 @@ export async function classifyBySatisfaction(messages) {
 }
 export async function dispatch(req, res) {
     const log = getLogger(MODULE, dispatch);
+    log.silly('called');
     if (!req.body) {
         throw error(REQ_BODY_EMPTY, { res });
     }
-    const requestBody = parseRequestBody(req, isCreateChatCompletionRequest);
-    const doStream = requestBody.stream || false;
+    log.silly('parsing request body');
+    let requestBody;
+    try {
+        requestBody = parseRequestBody(req, isCreateChatCompletionRequest);
+    }
+    catch (e) {
+        log.warn('Request body invalid: %s', req.body?.toString());
+        throw e;
+    }
+    log.silly('request body: %s', requestBody);
     let dispatchMessages = [...requestBody.messages];
     let dispatchEndpoint = 'default';
     res.setHeader('Content-Type', 'application/json');
     const serviceConfigMode = await getConnectivityMode('less');
     if (await isOnline(serviceConfigMode)) {
+        log.debug('Service online, mode: %s', serviceConfigMode.name);
         try {
             const mode = serviceConfigMode;
             let escalate = false;
             let escalationExplanation = [];
             if (mode.basePaths.classify) {
+                log.debug('Classifying intent');
                 const intent = await classifyByIntent(requestBody.messages);
                 let intentError = false;
                 if (typeof intent === 'string') {
@@ -80,6 +91,7 @@ export async function dispatch(req, res) {
                     }
                 }
                 if (satisfactionTestNeeded) {
+                    log.debug('Classifying satisfaction level');
                     const satisfaction = await classifyBySatisfaction(requestBody.messages);
                     if (typeof satisfaction === 'string') {
                         log.warn('Failed to rate satisfaction: ' + satisfaction +
@@ -97,6 +109,7 @@ export async function dispatch(req, res) {
                     }
                 }
                 if (!intentError) {
+                    log.warn('Successfully classified request');
                     const c = intent.complexity;
                     if (c.value === 'high') {
                         escalationNeeded += c.confidence || 100;
@@ -121,8 +134,10 @@ export async function dispatch(req, res) {
                 }
             }
             else {
+                log.debug('No clasifying here. Just use the default endpoint');
                 // use default dispatchEndpoint
             }
+            log.verbose('Sending AI request');
             // send the request
             const backendRequest = { ...requestBody };
             backendRequest.messages = dispatchMessages;
@@ -141,11 +156,13 @@ export async function dispatch(req, res) {
                     res.sendChunk(chunk);
                 });
                 dispatchResponse.on('end', () => {
+                    log.verbose('Response complete');
                     res.end();
                 });
             });
             dispatchRequest.write(backendBodyBuffer);
             dispatchRequest.end();
+            log.verbose('Sent request');
         }
         catch (e) {
             if (e instanceof Error) {
@@ -160,6 +177,7 @@ export async function dispatch(req, res) {
         }
     }
     else {
+        log.debug('Service OFFLINE, mode: %s', serviceConfigMode.name);
         res.status(503);
         res.send('Try again later');
     }

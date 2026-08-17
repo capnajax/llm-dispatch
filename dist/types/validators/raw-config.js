@@ -31,7 +31,7 @@ export function normalizeConfig(o, hostname, path) {
     let _hasErrors = false;
     const errors = path
         ? new Array()
-        : { push: () => { _hasErrors = true; } };
+        : { push: (...v) => { v.flat().length && (_hasErrors = true); } };
     const hasErrors = () => {
         if (Array.isArray(errors)) {
             const filteredErrors = errors.filter(e => e.length);
@@ -49,7 +49,7 @@ export function normalizeConfig(o, hostname, path) {
         }
     };
     const combinedProbe = {
-        ...(s.defaults.connectivity.probe || {}),
+        ...(s.defaults?.connectivity?.probe || {}),
         ...(s.hosts[hostname].connectivity.probe || {})
     };
     const probeIntervalsPath = subjectPath('probe');
@@ -82,7 +82,7 @@ export function normalizeConfig(o, hostname, path) {
     };
     for (const hcm of s.hosts[hostname].connectivity.modes) {
         const combinedMode = {
-            ...(s.defaults.connectivity.modes.find(m => m.name === hcm.name)),
+            ...(s.defaults?.connectivity?.modes?.find(m => m.name === hcm.name) || {}),
             ...(hcm)
         };
         if (hcm.name === OFFLINE_MODE) {
@@ -97,7 +97,7 @@ export function normalizeConfig(o, hostname, path) {
     if (hasErrors()) {
         if (Array.isArray(errors)) {
             const result = [];
-            result.push(...errors);
+            result.push(...errors.flat());
             return { valid: false, errors: result };
         }
         else {
@@ -118,6 +118,9 @@ export function normalizeConfigServiceConfigProbeIntervalValue(o, path) {
     let s = o;
     if (typeof s === 'number') {
         return { valid: true, value: s };
+    }
+    else if (s !== '' && !isNaN(Number(s))) {
+        return { valid: true, value: Number(s) };
     }
     else {
         s = s.trim();
@@ -159,7 +162,7 @@ export function validateConfigAsLoaded(o, path) {
             else if (typeof o?.defaults?.connectivity === 'object') {
                 // this is the desired path
                 const subjectPath = path ? `${path}.defaults` : path;
-                validateConfigHostConfig(o.defaults, path);
+                result.push(...validateConfigHostConfig(o.defaults, subjectPath));
             }
             else if (typeof o === 'object' && ((o.defaults === undefined) || (typeof o.defaults === 'object' &&
                 o.defaults.connectivity === undefined))) {

@@ -67,12 +67,14 @@ logging:
     #   methods:
     #     loadConfig:
     #       level: silly
-    # dispatch:
-    #   methods:
-    #     fetchConnectivityMode:
-    #       level: silly
-    #     getConnectivityMode:
-    #       level: silly
+    dispatch:
+      methods:
+        dispatch:
+          level: silly
+        fetchConnectivityMode:
+          level: info
+        getConnectivityMode:
+          level: info
     # routes/meta:
     #   level: debug
     # server:

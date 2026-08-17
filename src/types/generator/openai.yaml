@@ -8,7 +8,7 @@ blocks:
     /**
      * @module openai-types
      * Schemas from the OpenAI swaggar translated into types, interfaces, and
-     * typeguards for TypeScript. Only the types requested for export are
+     * runtime validators for TypeScript. Only the types requested for export are
      * actually exported, and only the same plus all their dependencies are
      * generated.
      */

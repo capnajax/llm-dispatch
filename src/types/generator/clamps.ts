@@ -47,22 +47,27 @@ interface Validator {
 }
 
 async function main(): Promise<void> {
-  const sourceDirArg = process.argv[2];
+  const sourceArg = process.argv[2];
   const outDirArg = process.argv[3];
 
-  if (!sourceDirArg || !outDirArg) {
+  if (!sourceArg || !outDirArg) {
     console.error(
       'Usage: tsx --enable-source-maps clamps.ts ' +
-      '[sourcedir] [outdir]'
+      '[source-file-or-directory] [outdir]'
     );
     process.exitCode = 1;
     return;
   }
 
-  const sourceDir = path.resolve(sourceDirArg);
+  const sourcePath = path.resolve(sourceArg);
   const outDir = path.resolve(outDirArg);
+  const sourceStats = await fs.stat(sourcePath);
+  const sourceIsDirectory = sourceStats.isDirectory();
+  const sourceDir = sourceIsDirectory
+    ? sourcePath
+    : path.dirname(sourcePath);
 
-  if (sourceDir === outDir) {
+  if (sourceIsDirectory && sourceDir === outDir) {
     throw new Error(
       'sourcedir and outdir must be different directories'
     );
@@ -72,9 +77,21 @@ async function main(): Promise<void> {
     skipAddingFilesFromTsConfig: true
   });
 
-  project.addSourceFilesAtPaths(
-    path.join(sourceDir, '**/*.ts')
-  );
+  if (sourceIsDirectory) {
+    project.addSourceFilesAtPaths(
+      path.join(sourceDir, '**/*.ts')
+    );
+  } else {
+    if (
+      !sourceStats.isFile() ||
+      !/\.(?:mts|cts|tsx|ts)$/.test(sourcePath)
+    ) {
+      throw new Error(
+        `Source must be a TypeScript file: ${sourcePath}`
+      );
+    }
+    project.addSourceFileAtPath(sourcePath);
+  }
 
   let generatedCount = 0;
 

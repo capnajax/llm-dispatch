@@ -21,6 +21,11 @@ export type BasePath = string;
 
 const permittedBasePathTypeValues = ['classify', 'default', 'escalate'];
 export type BasePathType = 'classify'|'default'|'escalate';
+export interface BasePaths {
+  default: BasePath;
+  classify?: BasePath;
+  escalate?: BasePath;
+}
 
 const permittedIconValues = ['half', 'full', 'empty'];
 type Icon = 'half'|'full'|'empty';
@@ -37,12 +42,12 @@ export interface OnlineServiceConfigMode extends ServiceConfigMode {
    * basePaths -- only `default` is required, but some other names have special
    * meanings:
    *  classify: if exists, determines if the request needs to be escalated.
-   *  inform: a RAG end point to find information
+   *  inform: (future feature) a RAG end point to find information
    *  escalate: the end point called if the `classify` end point requires
    *    extra care. The escalate end point model should be larger than the
    *    default.
    */
-  basePaths: Record<BasePathType, BasePath>,
+  basePaths: BasePaths,
   /**
    * Conditions for using this ServiceConfigMode. All the conditions must be
    * satisfied for this ServiceConfigMode to be used.
@@ -100,12 +105,19 @@ function validateBasePaths(o: any, path?:string): string[] {
   log.silly('called on {path, o}: %s', inspect({path, o}, D3));
   const result = [];
   if (typeof o === 'object') {
+    let hasDefault = false;
     for (const k in o) {
       const kPath = path ? `${path}.${k}` : path;
       result.push(
         ...validateBasePathType(k, kPath),
         ...validateBasePath(o[k], kPath)
       );
+      if (k === 'default') {
+        hasDefault = true;
+      }
+    }
+    if (!hasDefault) {
+      result.push(path ? `${path} has no default base path` : E);
     }
   } else {
     result.push(path ? `${path} is not an object` : E);
@@ -115,6 +127,7 @@ function validateBasePaths(o: any, path?:string): string[] {
 };
 
 export function validateConfig(o:unknown, path?:string): string[] {
+
   const result = [];
   const subPath = (leaf:string|undefined) => {
     if (path) {
@@ -181,7 +194,7 @@ function validateBasePathType(o:any, path?:string): string[] {
   const result:string[] = [];
   log.silly('called on {path, o}: %s', inspect({path, o}, D3));
   if (typeof o === 'string' && !permittedBasePathTypeValues.includes(o)) {
-    result.push(format('%s is not a basePath type key', path));
+    result.push(path ? format('%s is not a basePath type key', path) : E);
   }
   logResult(result, log);
   return result;
@@ -192,7 +205,7 @@ function validateIcon(o:any, path?:string): string[] {
   const result:string[] = [];
   log.silly('called on {path, o}: %s', inspect({path, o}, D3));
   if (!(typeof o === 'string' && permittedIconValues.includes(o))) {
-    result.push(format('%s is not a valid icon value', path));
+    result.push(path ? format('%s is not a valid icon value', path) : E);
   }
   logResult(result, log);
   return result;
@@ -302,6 +315,8 @@ export function validateServiceConfigProbeCondition(o: any, path?: string)
   const result:string[] = [];
   if (typeof o !== 'object') {
     result.push(path ? `${path} must be an object` : E);
+  } else if (o === null) {
+    result.push(path ? `${path} must not be null` : E);
   } else {
     let numConditionsInCondition = 0;
     if (o.healthy) {
@@ -314,8 +329,10 @@ export function validateServiceConfigProbeCondition(o: any, path?: string)
         );
       }
     }
-    if (numConditionsInCondition !== 1) {
+    if (numConditionsInCondition > 1) {
       result.push(path ? `${path} too many conditions in condition` : E);
+    } else if (numConditionsInCondition === 0) {
+      result.push(path ? `${path} no conditions in condition` : E);
     }
   }
   logResult(result, log);

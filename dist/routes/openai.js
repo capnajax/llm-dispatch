@@ -1,11 +1,13 @@
-import { fetchModels } from "../dispatch.js";
+import { dispatch, fetchModels } from "../dispatch.js";
 import { end, failIfNotReady } from '../lib/http-tools.js';
 import { getLogger } from '../lib/logger.js';
 const MODULE = 'routes/openai';
 export function registerRoutes(app) {
     // Chat Completions (primary endpoint for Continue + chat apps)
-    // app.post("/v1/chat/completions", async (req: Request, res: Response) => {
-    // });
+    app.post("/v1/chat/completions", async (req, res) => {
+        if (!failIfNotReady(res))
+            await dispatch(req, res);
+    });
     // // Embeddings
     // app.post("/v1/embeddings", async (req: Request, res: Response) => {
     //   res.send(await proxy.embeddings(await req.body?.toString() || ''));

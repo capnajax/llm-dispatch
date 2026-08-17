@@ -17,11 +17,13 @@ import ErrorCode, {
   isErrorCode,
   REQ_BODY_EMPTY
 } from "./types/generated/error-codes.js"
-import {
+import type {
   ChatCompletionRequestMessage,
-  CreateChatCompletionRequest,
-  isCreateChatCompletionRequest
+  CreateChatCompletionRequest
 } from "./types/generated/openai-types.js"
+import {
+  isCreateChatCompletionRequest
+} from "./types/generated/openai-types-clamps.js"
 import {
   AppMeta,
   BasePathType,
@@ -115,13 +117,21 @@ export async function classifyBySatisfaction(
 export async function dispatch(req:Request<AppMeta>, res:Response)
 : Promise<void> {
   const log = getLogger(MODULE, dispatch);
+  log.silly('called');
   if (!req.body) {
     throw error(REQ_BODY_EMPTY, {res});
   }
-  const requestBody = parseRequestBody<CreateChatCompletionRequest>(
-    req, isCreateChatCompletionRequest);
+  log.silly('parsing request body');
+  let requestBody!:CreateChatCompletionRequest;
+  try {
+    requestBody = parseRequestBody<CreateChatCompletionRequest>(
+      req, isCreateChatCompletionRequest);
+  } catch(e) {
+    log.warn('Request body invalid: %s', req.body?.toString());
+    throw e;
+  }
 
-  const doStream = requestBody.stream || false;
+  log.silly('request body: %s', requestBody);
 
   let dispatchMessages:ChatCompletionRequestMessage[] =
     [ ... requestBody.messages ];
@@ -130,12 +140,14 @@ export async function dispatch(req:Request<AppMeta>, res:Response)
   res.setHeader('Content-Type', 'application/json');
   const serviceConfigMode = await getConnectivityMode('less');
   if (await isOnline(serviceConfigMode)) {
+    log.debug('Service online, mode: %s', serviceConfigMode.name)
     try {
       const mode = serviceConfigMode as OnlineServiceConfigMode;
       let escalate = false;
       let escalationExplanation:string[] = []
 
       if (mode.basePaths.classify) {
+        log.debug('Classifying intent');
         const intent = await classifyByIntent(requestBody.messages);
         let intentError = false;
         if (typeof intent === 'string') {
@@ -156,6 +168,7 @@ export async function dispatch(req:Request<AppMeta>, res:Response)
           }
         }
         if (satisfactionTestNeeded) {
+          log.debug('Classifying satisfaction level');
           const satisfaction =
             await classifyBySatisfaction(requestBody.messages);
           if (typeof satisfaction === 'string') {
@@ -178,6 +191,7 @@ export async function dispatch(req:Request<AppMeta>, res:Response)
           }
         }
         if (!intentError) {
+          log.warn('Successfully classified request');
           const c = (intent as Intent).complexity;
           if (c.value === 'high') {
             escalationNeeded += c.confidence || 100;
@@ -203,9 +217,11 @@ export async function dispatch(req:Request<AppMeta>, res:Response)
         }
 
       } else {
+        log.debug('No clasifying here. Just use the default endpoint');
         // use default dispatchEndpoint
       }
 
+      log.verbose('Sending AI request');
       // send the request
       const backendRequest = {...requestBody};
       backendRequest.messages = dispatchMessages;
@@ -231,11 +247,13 @@ export async function dispatch(req:Request<AppMeta>, res:Response)
             res.sendChunk(chunk);
           });
           dispatchResponse.on('end', () => {
+            log.verbose('Response complete')
             res.end();
           })
         });
       dispatchRequest.write(backendBodyBuffer);
       dispatchRequest.end();
+      log.verbose('Sent request');
 
     } catch(e) {
       if (e instanceof Error) {
@@ -251,6 +269,7 @@ export async function dispatch(req:Request<AppMeta>, res:Response)
       }
     }
   } else {
+    log.debug('Service OFFLINE, mode: %s', serviceConfigMode.name)
     res.status(503)
     res.send('Try again later');
   }

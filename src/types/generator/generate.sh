@@ -44,9 +44,9 @@ mkdir -p ../generated
 
 echo "Running code generator"
 
-if doThing 'open-ai'; then
+if doThing 'openai'; then
   echo
-  echo "[openai]: converting schemas in swagger to TS types and typeguards"
+  echo "[openai]: converting schemas in swagger to TS types and validators"
   echo
   tsx --enable-source-maps openai.ts openai.yaml ../generated/openai-types
   if $doPrettier; then
@@ -54,6 +54,13 @@ if doThing 'open-ai'; then
 
     npx prettier --parser typescript --config "${DIR}/.prettierrc" \
       --write ../generated/openai-types.ts
+  fi
+
+  tsx --enable-source-maps clamps.ts \
+    ../generated/openai-types.ts ../generated
+  if $doPrettier; then
+    npx prettier --parser typescript --config "${DIR}/.prettierrc" \
+      --write ../generated/openai-types-clamps.ts
   fi
 fi
 

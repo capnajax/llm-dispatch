@@ -37,212 +37,7 @@ function doActions(actions, specs) {
 }
 function generate(specs) {
     const log = getLogger(MODULE, generate);
-    const result = { types: {}, typeguards: {} };
-    const parenAndIndent = (line, indent = 0) => {
-        // only affects the first line of a multiline string
-        const lines = line.split('\n');
-        log.debug(`parenAndIndent(${lines.length} line${lines.length !== 1 ? 's' : ''}): ${line}`);
-        if (lines.length > 0) {
-            const line1 = lines[0];
-            const otherLines = lines.slice(1);
-            log.debug(`line1: ${line1}`);
-            log.debug(`otherLines: ${otherLines}`);
-            const m = line1.match(/^(\s*)([a-z].*)/);
-            if (!m) {
-                log.debug(`otherLines: ${otherLines}`);
-                return line;
-            }
-            return indent === -1
-                ? [`${m[1]}${'( '}${m[2]}`, ...otherLines].join('\n') + ' )'
-                : [`${m[1]}${indent === 0 ? `\n${m[1]}( ` : '( '}${m[2]}`,
-                    ...otherLines.map(l => `  ${l}`)
-                ].join('\n') + `${m[1]})`;
-        }
-        else {
-            return line;
-        }
-    };
-    const generateTest = (name, spec, level) => {
-        const log = getLogger(MODULE, `generate.generateTest[${name}]`);
-        level ||= 0;
-        const h = '  '.repeat(level + 2); // indent level
-        const result = [];
-        let isAtomic = false; // set to true if parentheses are not necessary
-        const trimFirstLine = (lines) => {
-            const result = [];
-            lines = Array.isArray(lines) ? lines : lines.lines;
-            if (lines.length >= 1) {
-                result.push(lines[0].trim());
-            }
-            if (lines.length > 1) {
-                result.push(...lines.slice(1));
-            }
-            return result;
-        };
-        switch (spec.type) {
-            case 'anyOf':
-            case 'oneOf':
-                log.debug('ANYOF/ONEOF on spec ' +
-                    JSON.stringify(spec.union));
-                // not really making the distinction between oneOf and anyOf here.
-                if (spec.union.length > 0) {
-                    const union = spec.union;
-                    const itemsOred = union.map((u) => {
-                        log.debug(` --> u ${JSON.stringify(u)}`);
-                        const gt = generateTest(name, u, level + 1);
-                        const gtIsAtomic = !Array.isArray(gt) && gt.isAtomic;
-                        const gtLines = Array.isArray(gt) ? gt : gt.lines;
-                        let result;
-                        if (gtIsAtomic && gt.lines.length === 1) {
-                            result = `${gt.lines}`;
-                        }
-                        else if (!gtIsAtomic &&
-                            gtLines.length === 1 &&
-                            gtLines[0].indexOf('\n') === -1) {
-                            result = parenAndIndent(gtLines[0]);
-                        }
-                        else {
-                            result = `${h}( ${trimFirstLine(gt).join(' &&\n')}\n${h})`;
-                        }
-                        return result;
-                    }).join(' ||\n') + `\n`;
-                    log.debug(`itemsOred: ${JSON.stringify(itemsOred)}`);
-                    result.push(itemsOred);
-                }
-                break;
-            case 'array':
-                result.push(`${h}Array.isArray(${name})`);
-                log.debug('Building test for array ' + name);
-                const itemName = name.replace(/.*\./, '') + 'Item';
-                const items = generateTest(itemName, spec.items, level + 2);
-                const itemsAr = Array.isArray(items) ? items : items.lines;
-                const itemsIsAtomic = Array.isArray(items) ? false : items.isAtomic;
-                if (itemsAr.length === 0) {
-                    log.warn(`No test for items of array ${name}`);
-                }
-                else if (itemsAr.length === 1 && itemsIsAtomic) {
-                    result.push(`${h}${name}.every((${itemName}:any) => ${itemsAr[0].trim()})`);
-                }
-                else {
-                    const item = [];
-                    item.push(`${h}${name}.every((${itemName}:any) => {`);
-                    item.push(`${h}  return (`);
-                    item.push(...itemsAr.map((l, i, a) => {
-                        return i === a.length - 1 ? l : `${l} &&`;
-                    }));
-                    item.push(`${h}  );`);
-                    item.push(`${h}})`);
-                    result.push(item.join('\n'));
-                }
-                break;
-            case 'boolean':
-                result.push(`${h}typeof ${name} === 'boolean'`);
-                break;
-            case 'integer':
-            case 'float':
-                result.push(`${h}typeof ${name} === 'number'`);
-                if (spec.minimum) {
-                    result.push(`${h}${name} >= ${spec.minimum}`);
-                }
-                if (spec.maximum) {
-                    result.push(`${h}${name} <= ${spec.maximum}`);
-                }
-                if (spec.format) {
-                    switch (spec.format) {
-                        case 'unixtime':
-                            // no validation
-                            break;
-                        default:
-                            log.warn(`Unknown integer format "${spec.format}"`);
-                    }
-                }
-                if (spec.type === 'integer') {
-                    result.push(`${h}Number.isInteger(${name})`);
-                }
-                break;
-            case 'object':
-                log.debug('OBJECT on spec ' +
-                    JSON.stringify(spec.object));
-                result.push(`${h}( typeof ${name} === 'object' )`);
-                const so = spec.object;
-                // for the extended class
-                const se = spec.extends;
-                if (se) {
-                    const gt = generateTest(name, specs[se], level);
-                    let gtLines = Array.isArray(gt) ? gt : gt.lines;
-                    const indent = gtLines[0].match(/^(\s*)  /)?.[1] || '';
-                    gtLines[0] = indent + '( ' + gtLines[0].trim();
-                    result.push(gtLines.join(' &&\n') + `${indent})`);
-                }
-                const propertiesTests = [];
-                if (so?.properties) {
-                    for (const oKey of Object.keys(so.properties)) {
-                        const oValue = so.properties[oKey];
-                        const gt = generateTest(`${name}.${oKey}`, oValue.spec, level + 1);
-                        let gtLines = Array.isArray(gt) ? gt : gt.lines;
-                        if (['anyOf', 'oneOf'].includes(oValue.spec.type)) {
-                            if (gtLines.length > 1) {
-                                const indent = gtLines[0].match(/^(\s*)  /)?.[1] || '';
-                                log.debug(`oValue for ${name}/${oKey} requirement is ${oValue.required}`);
-                                if (oValue.required) {
-                                    gtLines[0] = indent + '( ' + gtLines[0].trim();
-                                }
-                                else {
-                                    gtLines[0] = `${indent}( !! ( ${name} ??\n` +
-                                        `(${indent}( ${gtLines[0].trim()}) )`;
-                                }
-                                gtLines.push(`${indent})`);
-                            }
-                            else if (gtLines.length === 1) {
-                                const indent = gtLines[0].match(/^(\s*)  /)?.[1] || '';
-                                if (!oValue.required) {
-                                    gtLines[0] =
-                                        `${indent}( !! ( ${name} ?? (${gtLines[0].trim()}) ))`;
-                                }
-                            }
-                        }
-                        log.debug(`gt = ${JSON.stringify(gtLines)}`);
-                        propertiesTests.push(...gtLines);
-                    }
-                }
-                if (spec.nullable !== true) {
-                    result.push(`${h}( ${name} !== null )`, ...propertiesTests);
-                }
-                break;
-            case 'null':
-                result.push(`${h}(${name} === null || ${name} === undefined)`);
-                isAtomic = true;
-                break;
-            case 'ref':
-                result.push(`${h}is${spec.ref}(${name})`);
-                isAtomic = true;
-                break;
-            case 'string':
-                if (spec.enum) {
-                    result.push(`${h}${JSON.stringify(spec.enum)}.includes(${name})`);
-                    isAtomic = true;
-                }
-                else {
-                    result.push(`(${h}typeof ${name} === 'string')`);
-                    isAtomic = true;
-                }
-                break;
-            default:
-                result.push(`${h}// ${name} is ${spec.type}`);
-                log.warn(`No test generator for spec.type == ${spec.type}`);
-                break;
-        }
-        if (spec.nullable) {
-            const newResult = [
-                `( ${name} === null || (`,
-                result.map(r => `  ${r}`).join(` &&\n${h}`),
-                '))'
-            ];
-            result.length = 0;
-            result.push(newResult.join('\n'));
-        }
-        return isAtomic ? { isAtomic: true, lines: result } : result;
-    };
+    const result = { types: {}, validators: {} };
     const generateType = (name, spec) => {
         const resultLines = [];
         const inner = generateTypeInner(name, spec);
@@ -404,49 +199,26 @@ function generate(specs) {
         return result;
     };
     for (const specName of Object.keys(specs)) {
-        log.info(`Generating test for ${specName}`);
+        log.info(`Generating type for ${specName}`);
         const spec = specs[specName];
-        const ex = runConfig.types.export.includes(specName) ? 'export ' : '';
         log.debug('runConfig.types.export === ', JSON.stringify(runConfig.types.export));
-        log.debug('Generating typeguard for specName ' + specName + ', ex === "' + ex + '"');
-        const generatedTest = generateTest('o', spec);
-        const testLines = Array.isArray(generatedTest)
-            ? generatedTest
-            : generatedTest.lines;
-        const linesIsAtomic = Array.isArray(generatedTest)
-            ? false
-            : generatedTest.isAtomic;
-        const lineIsSingle = (l) => {
-            return l.length === 1 && l.indexOf('\n') === -1;
-        };
         const type = generateType(specName, spec);
-        const parenthesizeLines = () => {
-            return testLines.map((l, i) => {
-                return linesIsAtomic
-                    ? l
-                    : parenAndIndent(l, lineIsSingle(l) ? -1 : i);
-            });
-        };
         if (type) {
             result.types[specName] = type;
         }
-        if (testLines.length > 0) {
-            if (testLines.length === 1 && testLines[0].indexOf('\n') === -1) {
-                result.typeguards[specName] =
-                    `${ex}function is${specName}(o: any): o is ${specName} {\n` +
-                        `  return ${testLines[0].trim()};\n}`;
-            }
-            else {
-                result.typeguards[specName] =
-                    `${ex}function is${specName}(o: any): o is ${specName} {\n` +
-                        `  return (\n${parenthesizeLines().join(' &&\n')}\n  );\n}`;
-            }
+        if (runConfig.types.export.includes(specName)) {
+            log.info(`Generating validator for ${specName}`);
+            result.validators[specName] =
+                `export function validate${specName}(` +
+                    `o: any, path?: string): string[] {\n` +
+                    `  return checkNamed(${JSON.stringify(specName)}, o, path);\n` +
+                    `}`;
         }
     }
     if (process.argv[3]) {
         const filename = `${process.argv[3]}.ts`;
-        log.info(`Generated types and typeguards to ${filename}:`);
-        const valuesSorted = (record, isExport, isTypeGuard) => {
+        log.info(`Generated types and validators to ${filename}:`);
+        const valuesSorted = (record, isExport) => {
             return Object.keys(record)
                 .sort()
                 .filter((name) => {
@@ -457,11 +229,12 @@ function generate(specs) {
                 .map((name) => record[name]);
         };
         let fileContent = [
-            [...valuesSorted(result.types, true, false),
-                ...valuesSorted(result.typeguards, true, true)
+            [...valuesSorted(result.types, true),
+                ...valuesSorted(result.validators, true)
             ].join('\n\n'),
-            [...valuesSorted(result.types, false, false),
-                ...valuesSorted(result.typeguards, false, true)
+            [...valuesSorted(result.types, false),
+                ...valuesSorted(result.validators, false),
+                generateValidatorRuntime(specs)
             ].join('\n\n')
         ];
         if (runConfig.blocks?.mid) {
@@ -477,12 +250,324 @@ function generate(specs) {
         for (const t of Object.values(result.types)) {
             console.log(t);
         }
-        log.info('Generated typeguards:');
-        for (const t of Object.values(result.typeguards)) {
+        log.info('Generated validators:');
+        for (const t of Object.values(result.validators)) {
             console.log(t);
         }
     }
     return result;
+}
+function generateValidatorRuntime(specs) {
+    const toValidationSpec = (spec) => {
+        const source = spec;
+        const result = { type: spec.type };
+        for (const name of [
+            'nullable',
+            'ref',
+            'enum',
+            'pattern',
+            'minimum',
+            'maximum',
+            'minItems',
+            'extends',
+        ]) {
+            if (Object.hasOwn(source, name)) {
+                result[name] = source[name];
+            }
+        }
+        if (source.union) {
+            result.union = source.union.map(toValidationSpec);
+        }
+        if (source.items) {
+            result.items = toValidationSpec(source.items);
+        }
+        if (source.object) {
+            result.object = {
+                properties: Object.fromEntries(Object.entries(source.object.properties ?? {}).map(([name, property]) => [
+                    name,
+                    {
+                        required: property.required,
+                        spec: toValidationSpec(property.spec),
+                    },
+                ])),
+                additionalProperties: source.object.additionalProperties,
+            };
+        }
+        return result;
+    };
+    const validationSpecs = Object.fromEntries(Object.entries(specs).map(([name, spec]) => [name, toValidationSpec(spec)]));
+    return `type ValidationSpec = {
+  type: string;
+  nullable?: boolean;
+  ref?: string;
+  union?: ValidationSpec[];
+  items?: ValidationSpec;
+  enum?: string[];
+  pattern?: string;
+  minimum?: number;
+  maximum?: number;
+  minItems?: number;
+  extends?: string;
+  object?: {
+    properties?: Record<string, {
+      required: boolean;
+      spec: ValidationSpec;
+    }>;
+    additionalProperties?: boolean | string;
+  };
+};
+
+type ObjectShape = {
+  properties: Record<string, {
+    required: boolean;
+    spec: ValidationSpec;
+  }>;
+  additionalProperties: boolean | string;
+};
+
+const validationSpecs: Record<string, ValidationSpec> = ${JSON.stringify(validationSpecs, null, 2)};
+
+const objectShapes = new WeakMap<ValidationSpec, ObjectShape>();
+
+function validationError(path: string | undefined, message: string): string[] {
+  return [path ? \`\${path} \${message}\` : 'error'];
+}
+
+function checkNamed(
+  name: string,
+  o: any,
+  path?: string
+): string[] {
+  const spec = validationSpecs[name];
+
+  if (!spec) {
+    return validationError(path, \`has unknown schema \${name}\`);
+  }
+
+  return checkSpec(spec, o, path);
+}
+
+function checkSpec(
+  spec: ValidationSpec,
+  o: any,
+  path?: string
+): string[] {
+  if (spec.nullable && o === null) {
+    return [];
+  }
+
+  switch (spec.type) {
+  case 'anyOf':
+  case 'oneOf':
+    return checkUnion(spec, o, path);
+
+  case 'array': {
+    if (!Array.isArray(o)) {
+      return validationError(path, 'must be an array');
+    }
+
+    if (spec.minItems !== undefined && o.length < spec.minItems) {
+      return validationError(
+        path,
+        \`must contain at least \${spec.minItems} item\${
+          spec.minItems === 1 ? '' : 's'
+        }\`
+      );
+    }
+
+    if (!spec.items) {
+      return [];
+    }
+
+    const result: string[] = [];
+    for (let i = 0; i < o.length; i++) {
+      const errors = checkSpec(
+        spec.items,
+        o[i],
+        path ? \`\${path}[\${i}]\` : undefined
+      );
+      result.push(...errors);
+      if (!path && errors.length) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  case 'boolean':
+    return typeof o === 'boolean'
+      ? []
+      : validationError(path, 'must be a boolean');
+
+  case 'integer':
+  case 'float': {
+    if (typeof o !== 'number' || !Number.isFinite(o)) {
+      return validationError(path, 'must be a number');
+    }
+    if (spec.type === 'integer' && !Number.isInteger(o)) {
+      return validationError(path, 'must be an integer');
+    }
+    if (spec.minimum !== undefined && o < spec.minimum) {
+      return validationError(path, \`must be at least \${spec.minimum}\`);
+    }
+    if (spec.maximum !== undefined && o > spec.maximum) {
+      return validationError(path, \`must be at most \${spec.maximum}\`);
+    }
+    return [];
+  }
+
+  case 'null':
+    return o === null ? [] : validationError(path, 'must be null');
+
+  case 'object':
+    return checkObject(spec, o, path);
+
+  case 'ref':
+    return spec.ref
+      ? checkNamed(spec.ref, o, path)
+      : validationError(path, 'has a reference without a schema name');
+
+  case 'string': {
+    if (typeof o !== 'string') {
+      return validationError(path, 'must be a string');
+    }
+    if (spec.enum && !spec.enum.includes(o)) {
+      return validationError(
+        path,
+        \`must be one of \${spec.enum.map(value => JSON.stringify(value)).join(', ')}\`
+      );
+    }
+    if (spec.pattern && !new RegExp(spec.pattern).test(o)) {
+      return validationError(path, \`must match /\${spec.pattern}/\`);
+    }
+    return [];
+  }
+
+  default:
+    return validationError(path, \`has unsupported schema type \${spec.type}\`);
+  }
+}
+
+function checkUnion(
+  spec: ValidationSpec,
+  o: any,
+  path?: string
+): string[] {
+  const alternatives = spec.union ?? [];
+  const results = alternatives.map(alternative =>
+    checkSpec(alternative, o, path)
+  );
+  const matches = results.filter(errors => errors.length === 0).length;
+
+  if (spec.type === 'anyOf' ? matches > 0 : matches === 1) {
+    return [];
+  }
+
+  if (matches > 1) {
+    return validationError(path, 'must match exactly one allowed schema');
+  }
+
+  if (path && results.length) {
+    return results.reduce((best, errors) =>
+      errors.length < best.length ? errors : best
+    );
+  }
+
+  return validationError(path, 'does not match an allowed schema');
+}
+
+function getObjectShape(spec: ValidationSpec): ObjectShape {
+  const cached = objectShapes.get(spec);
+  if (cached) {
+    return cached;
+  }
+
+  let properties: ObjectShape['properties'] = {};
+  let additionalProperties: ObjectShape['additionalProperties'] = false;
+
+  if (spec.extends) {
+    const base = validationSpecs[spec.extends];
+    if (base?.type === 'object') {
+      const baseShape = getObjectShape(base);
+      properties = { ...baseShape.properties };
+      additionalProperties = baseShape.additionalProperties;
+    }
+  }
+
+  properties = {
+    ...properties,
+    ...(spec.object?.properties ?? {})
+  };
+  if (spec.object?.additionalProperties !== undefined) {
+    additionalProperties = spec.object.additionalProperties;
+  }
+
+  const result = { properties, additionalProperties };
+  objectShapes.set(spec, result);
+  return result;
+}
+
+function checkObject(
+  spec: ValidationSpec,
+  o: any,
+  path?: string
+): string[] {
+  if (typeof o !== 'object' || o === null || Array.isArray(o)) {
+    return validationError(path, 'must be an object');
+  }
+
+  const result: string[] = [];
+  const shape = getObjectShape(spec);
+
+  for (const [name, property] of Object.entries(shape.properties)) {
+    const propertyPath = path ? \`\${path}.\${name}\` : undefined;
+    const value = o[name];
+
+    if (value === undefined) {
+      if (property.required) {
+        const errors = validationError(propertyPath, 'is required');
+        result.push(...errors);
+        if (!path) {
+          return result;
+        }
+      }
+      continue;
+    }
+
+    const errors = checkSpec(property.spec, value, propertyPath);
+    result.push(...errors);
+    if (!path && errors.length) {
+      return result;
+    }
+  }
+
+  for (const name of Object.keys(o)) {
+    if (Object.hasOwn(shape.properties, name)) {
+      continue;
+    }
+
+    const propertyPath = path ? \`\${path}.\${name}\` : undefined;
+    if (shape.additionalProperties === false) {
+      const errors = validationError(propertyPath, 'is not allowed');
+      result.push(...errors);
+      if (!path) {
+        return result;
+      }
+    } else if (typeof shape.additionalProperties === 'string') {
+      const errors = checkSpec(
+        { type: shape.additionalProperties },
+        o[name],
+        propertyPath
+      );
+      result.push(...errors);
+      if (!path && errors.length) {
+        return result;
+      }
+    }
+  }
+
+  return result;
+}`;
 }
 const runConfigPathname = process.argv[2];
 const runConfig = (() => {

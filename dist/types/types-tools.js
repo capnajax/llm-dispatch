@@ -47,9 +47,9 @@ export function tv(result, fn, path, member, required) {
         let subject = oo;
         let doTests = true;
         if (member) {
-            if (typeof subject === 'object') {
+            if (typeof subject === 'object' && subject !== null) {
                 subject = subject[member];
-                subjectPath = `${path}.${member}`;
+                subjectPath = path ? `${path}.${member}` : path;
                 if (subject === undefined) {
                     if (required) {
                         errors = [path ? `${path}.${member} is required` : E];
@@ -59,8 +59,11 @@ export function tv(result, fn, path, member, required) {
                     }
                 }
             }
+            else if (subject === null) {
+                errors = [path ? `${path} is null` : E];
+            }
             else {
-                errors = [path ? `${oo} is not an object` : E];
+                errors = [path ? `${path} is not an object` : E];
             }
         }
         if (!errors.length && doTests) {
@@ -97,9 +100,9 @@ export function tva(result, fn, path, member, required) {
         let subject = oo;
         let doTests = true;
         if (member) {
-            if (typeof subject === 'object') {
+            if (typeof subject === 'object' && subject !== null) {
                 subject = subject[member];
-                subjectPath = `${path}.${member}`;
+                subjectPath = path ? `${path}.${member}` : path;
                 if (subject === undefined) {
                     if (required) {
                         errors = [path ? `${path}.${member} is required` : E];
@@ -108,6 +111,9 @@ export function tva(result, fn, path, member, required) {
                         doTests = false;
                     }
                 }
+            }
+            else if (subject === null) {
+                errors = [path ? `${oo} is null` : E];
             }
             else {
                 errors = [path ? `${oo} is not an object` : E];
@@ -123,7 +129,7 @@ export function tva(result, fn, path, member, required) {
                 })).flat());
             }
             else {
-                result.push(path ? `${subjectPath} must be an array` : E);
+                errors.push(path ? `${subjectPath} must be an array` : E);
             }
         }
         result.push(...errors);
@@ -173,7 +179,7 @@ export function doTests(rop, ...tests) {
                 }
             }
             else {
-                result.push(E);
+                test.message && result.push(E);
             }
         }
     }
