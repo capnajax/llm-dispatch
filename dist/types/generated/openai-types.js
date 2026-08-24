@@ -32,6 +32,147 @@ export function validateResponseFormatJsonSchema(o, path) {
 export function validateResponseFormatText(o, path) {
     return checkNamed('ResponseFormatText', o, path);
 }
+export function validateChatCompletionAllowedTools(o, path) {
+    return checkNamed('ChatCompletionAllowedTools', o, path);
+}
+export function validateChatCompletionAllowedToolsChoice(o, path) {
+    return checkNamed('ChatCompletionAllowedToolsChoice', o, path);
+}
+export function validateChatCompletionFunctionCallOption(o, path) {
+    return checkNamed('ChatCompletionFunctionCallOption', o, path);
+}
+export function validateChatCompletionFunctions(o, path) {
+    return checkNamed('ChatCompletionFunctions', o, path);
+}
+export function validateChatCompletionMessageCustomToolCall(o, path) {
+    return checkNamed('ChatCompletionMessageCustomToolCall', o, path);
+}
+export function validateChatCompletionMessageToolCall(o, path) {
+    return checkNamed('ChatCompletionMessageToolCall', o, path);
+}
+export function validateChatCompletionMessageToolCallChunk(o, path) {
+    return checkNamed('ChatCompletionMessageToolCallChunk', o, path);
+}
+export function validateChatCompletionMessageToolCalls(o, path) {
+    return checkNamed('ChatCompletionMessageToolCalls', o, path);
+}
+export function validateChatCompletionNamedToolChoice(o, path) {
+    return checkNamed('ChatCompletionNamedToolChoice', o, path);
+}
+export function validateChatCompletionNamedToolChoiceCustom(o, path) {
+    return checkNamed('ChatCompletionNamedToolChoiceCustom', o, path);
+}
+export function validateChatCompletionRequestAssistantMessage(o, path) {
+    return checkNamed('ChatCompletionRequestAssistantMessage', o, path);
+}
+export function validateChatCompletionRequestAssistantMessageContentPart(o, path) {
+    return checkNamed('ChatCompletionRequestAssistantMessageContentPart', o, path);
+}
+export function validateChatCompletionRequestDeveloperMessage(o, path) {
+    return checkNamed('ChatCompletionRequestDeveloperMessage', o, path);
+}
+export function validateChatCompletionRequestFunctionMessage(o, path) {
+    return checkNamed('ChatCompletionRequestFunctionMessage', o, path);
+}
+export function validateChatCompletionRequestMessageContentPartAudio(o, path) {
+    return checkNamed('ChatCompletionRequestMessageContentPartAudio', o, path);
+}
+export function validateChatCompletionRequestMessageContentPartFile(o, path) {
+    return checkNamed('ChatCompletionRequestMessageContentPartFile', o, path);
+}
+export function validateChatCompletionRequestMessageContentPartImage(o, path) {
+    return checkNamed('ChatCompletionRequestMessageContentPartImage', o, path);
+}
+export function validateChatCompletionRequestMessageContentPartRefusal(o, path) {
+    return checkNamed('ChatCompletionRequestMessageContentPartRefusal', o, path);
+}
+export function validateChatCompletionRequestMessageContentPartText(o, path) {
+    return checkNamed('ChatCompletionRequestMessageContentPartText', o, path);
+}
+export function validateChatCompletionRequestSystemMessage(o, path) {
+    return checkNamed('ChatCompletionRequestSystemMessage', o, path);
+}
+export function validateChatCompletionRequestSystemMessageContentPart(o, path) {
+    return checkNamed('ChatCompletionRequestSystemMessageContentPart', o, path);
+}
+export function validateChatCompletionRequestToolMessage(o, path) {
+    return checkNamed('ChatCompletionRequestToolMessage', o, path);
+}
+export function validateChatCompletionRequestToolMessageContentPart(o, path) {
+    return checkNamed('ChatCompletionRequestToolMessageContentPart', o, path);
+}
+export function validateChatCompletionRequestUserMessage(o, path) {
+    return checkNamed('ChatCompletionRequestUserMessage', o, path);
+}
+export function validateChatCompletionRequestUserMessageContentPart(o, path) {
+    return checkNamed('ChatCompletionRequestUserMessageContentPart', o, path);
+}
+export function validateChatCompletionResponseMessage(o, path) {
+    return checkNamed('ChatCompletionResponseMessage', o, path);
+}
+export function validateChatCompletionStreamOptions(o, path) {
+    return checkNamed('ChatCompletionStreamOptions', o, path);
+}
+export function validateChatCompletionTokenLogprob(o, path) {
+    return checkNamed('ChatCompletionTokenLogprob', o, path);
+}
+export function validateChatCompletionTool(o, path) {
+    return checkNamed('ChatCompletionTool', o, path);
+}
+export function validateChatCompletionToolChoiceOption(o, path) {
+    return checkNamed('ChatCompletionToolChoiceOption', o, path);
+}
+export function validateCompletionUsage(o, path) {
+    return checkNamed('CompletionUsage', o, path);
+}
+export function validateCreateModelResponseProperties(o, path) {
+    return checkNamed('CreateModelResponseProperties', o, path);
+}
+export function validateCustomToolChatCompletions(o, path) {
+    return checkNamed('CustomToolChatCompletions', o, path);
+}
+export function validateFunctionObject(o, path) {
+    return checkNamed('FunctionObject', o, path);
+}
+export function validateFunctionParameters(o, path) {
+    return checkNamed('FunctionParameters', o, path);
+}
+export function validateMetadata(o, path) {
+    return checkNamed('Metadata', o, path);
+}
+export function validateModelIdsShared(o, path) {
+    return checkNamed('ModelIdsShared', o, path);
+}
+export function validateModelResponseProperties(o, path) {
+    return checkNamed('ModelResponseProperties', o, path);
+}
+export function validateParallelToolCalls(o, path) {
+    return checkNamed('ParallelToolCalls', o, path);
+}
+export function validatePredictionContent(o, path) {
+    return checkNamed('PredictionContent', o, path);
+}
+export function validateResponseFormatJsonSchemaSchema(o, path) {
+    return checkNamed('ResponseFormatJsonSchemaSchema', o, path);
+}
+export function validateResponseModalities(o, path) {
+    return checkNamed('ResponseModalities', o, path);
+}
+export function validateServiceTier(o, path) {
+    return checkNamed('ServiceTier', o, path);
+}
+export function validateStopConfiguration(o, path) {
+    return checkNamed('StopConfiguration', o, path);
+}
+export function validateVerbosity(o, path) {
+    return checkNamed('Verbosity', o, path);
+}
+export function validateWebSearchContextSize(o, path) {
+    return checkNamed('WebSearchContextSize', o, path);
+}
+export function validateWebSearchLocation(o, path) {
+    return checkNamed('WebSearchLocation', o, path);
+}
 const validationSpecs = {
     ModelIdsShared: {
         type: 'anyOf',

@@ -3,6 +3,7 @@
 set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+PROJECT_DIR="$(dirname "$(dirname "$(dirname "${DIR}")")")"
 
 doList=()
 doPrettier=true
@@ -39,6 +40,12 @@ doThing() {
   return 1
 }
 
+doTsx() {
+  echo "cd \"$(pwd)\""
+  echo "tsx --tsconfig \"${PROJECT_DIR}/tsconfig-generator.json\" $*"
+  tsx --tsconfig "${PROJECT_DIR}/tsconfig-generator.json" "$@"
+}
+
 cd "${DIR}" || exit 1
 mkdir -p ../generated
 
@@ -48,7 +55,7 @@ if doThing 'openai'; then
   echo
   echo "[openai]: converting schemas in swagger to TS types and validators"
   echo
-  tsx --enable-source-maps openai.ts openai.yaml ../generated/openai-types
+  doTsx --enable-source-maps openai.ts openai.yaml ../generated/openai-types
   if $doPrettier; then
     echo "Running Prettier"
 
@@ -56,7 +63,7 @@ if doThing 'openai'; then
       --write ../generated/openai-types.ts
   fi
 
-  tsx --enable-source-maps clamps.ts \
+  doTsx --enable-source-maps clamps.ts \
     ../generated/openai-types.ts ../generated
   if $doPrettier; then
     npx prettier --parser typescript --config "${DIR}/.prettierrc" \
@@ -68,7 +75,7 @@ if doThing 'error-codes'; then
   echo
   echo "[error-codes] Building error codes types and constants"
   echo
-  tsx --enable-source-maps error-codes.ts \
+  doTsx --enable-source-maps error-codes.ts \
     error-codes.yaml ../generated/error-codes
 fi
 
@@ -77,7 +84,7 @@ if doThing 'clamps'; then
   echo "[clamps] Building typeguards, asserts, and non-clamping tests from" \
     "validators and types"
   echo
-  tsx --enable-source-maps clamps.ts ../validators ../generated
+  doTsx --enable-source-maps clamps.ts ../validators ../generated
 fi
 
 echo

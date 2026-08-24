@@ -1,7 +1,7 @@
 import { getLogger } from "../lib/logger.js";
 import { statusIsSuccess } from "../lib/http-tools.js";
+import { ENDPOINT_LOG_FINALIZER } from "../lib/http-constants.js";
 const MODULE = 'middleware/endpoint-logging';
-export const ENDPOINT_LOG_FINALIZER = '[export-log-finalizer]';
 let repetitiveLogs = null;
 function isNewLog(method, path, statusCode) {
     return (repetitiveLogs === null) || (repetitiveLogs.method !== method ||

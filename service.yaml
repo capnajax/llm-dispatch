@@ -57,7 +57,7 @@ hosts:
           if:
             - healthy: http://localhost:8081/health
           basePaths:
-            default: http://gridscale.home.rocketcode.dev:10101/health
+            default: http://localhost:8081/health
         - name: offline
 
 logging:
@@ -69,17 +69,19 @@ logging:
     #       level: silly
     dispatch:
       methods:
+        classifyByIntent:
+          level: silly
         dispatch:
           level: silly
         fetchConnectivityMode:
           level: info
         getConnectivityMode:
           level: info
-    # routes/meta:
-    #   level: debug
-    # server:
-    #   level: debug
-    # middleware/endpoint-logging:
-    #   level: info
+    http-tools:
+      methods:
+        aiEndpointRequest:
+          level: silly
+    prompts/response-parsers:
+      level: silly
     '[export-log-finalizer]':
       level: http

@@ -39,6 +39,8 @@ modules:
   - name: dispatch
     description: Codes used by the dispatcher that calls different AI endpoints
     codes:
+      DISPATCH_INVALID_URL:
+        message: URL string failed to parse
       DISPATCH_OFFLINE:
         message: AI Endpoint is offline
         description: |

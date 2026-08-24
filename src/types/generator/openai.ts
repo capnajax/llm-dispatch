@@ -327,14 +327,12 @@ function generate(specs: Record<string, PropertySpecType>): GenerateResult {
       result.types[specName] = type;
     }
 
-    if (runConfig.types.export.includes(specName)) {
-      log.info(`Generating validator for ${specName}`);
-      result.validators[specName] =
-        `export function validate${specName}(` +
-        `o: any, path?: string): string[] {\n` +
-        `  return checkNamed(${JSON.stringify(specName)}, o, path);\n` +
-        `}`;
-    }
+    log.info(`Generating validator for ${specName}`);
+    result.validators[specName] =
+      `export function validate${specName}(` +
+      `o: any, path?: string): string[] {\n` +
+      `  return checkNamed(${JSON.stringify(specName)}, o, path);\n` +
+      `}`;
   }
 
   if (process.argv[3]) {

@@ -5,7 +5,7 @@ import { INTERNAL_ERROR } from "./generated/error-codes.js";
 import { Logger } from "winston";
 import { getLogger } from "../lib/logger.js";
 
-export const MODULE = 'types/types-tools';
+const MODULE = 'types/types-tools';
 
 export const NULLABLE_OBJECT = 'nullable object';
 
@@ -19,9 +19,110 @@ export type Normalized<T> = {
   value: T
 };
 
-type TestFunc = (o: any, required: boolean) => boolean;
-type TestItemTest = TestFunc | boolean | string;
-interface TestItem {
+type ROP = [
+  result:string[], o: unknown, path: string|undefined
+];
+
+export function validateNumberRange(
+  min: number|null, max: number|null, o: any, path?: string
+): string[] {
+  const result:string[] = [];
+  const rangeString = path
+    ? min !== null && max !== 0
+      ? ` between ${min} and ${max} inclusive`
+      : min !== null
+        ? ` at least ${min}`
+        : max !== null
+          ? ` no higher than ${max}`
+          : ''
+    : '';
+  if (typeof o === 'number') {
+    if (min !== null && o < min) {
+      result.push(path
+        ? `${path} value is too low. It must be${rangeString}.`
+        : E
+      );
+    }
+    if (max !== null && o > max) {
+      result.push(path
+        ? `${path} value is too low. It must be${rangeString}.`
+        : E);
+    }
+  } else {
+    result.push(path
+      ? `${path} must be a number${
+        rangeString ? ' that\'s' : ''}${rangeString}]`
+      : E);
+  }
+  return result;
+}
+
+export function validateStringEnum(
+  permittedValues: string[], o: any, path?: string
+): string[] {
+  const result:string[] = [];
+  if (typeof o === 'string') {
+    if (!permittedValues.includes(o)) {
+      result.push(path ? `${path} not in [${permittedValues.join(', ')}]` : E);
+    }
+  } else {
+    result.push(path
+      ? `${path} must be a string with value in ${permittedValues.join(', ')}]`
+      : E);
+  }
+  return result;
+}
+
+export function validateRecord_string_any(o: any, path?: string): string[] {
+  return validateRecord_string_validator(
+    ():string[] => [], o, path
+  );
+}
+
+export function validateRecord_string_string(o: any, path?: string): string[] {
+  return validateRecord_string_validator(
+    (o: unknown, path?:string):string[] => {
+      if (typeof o !== 'string') {
+        return [path ? `${path} is not a string` : E];
+      } else {
+        return [];
+      }
+    },
+    o,
+    path
+  );
+}
+
+export function validateRecord_string_validator(
+  validateFn:(o:any, path?:string)=>string[],
+  o: any,
+  path?: string
+): string[] {
+  const result:string[] = [];
+  if (typeof o === 'object') {
+    for (const k in o) {
+      if (typeof k === 'string') {
+        const subjectPath = path ? `${path}.${k}` : path
+        result.push(...validateFn(o[k], subjectPath));
+        if (result.length && !path) {
+          break;
+        }
+      } else {
+        result.push(path ? `${path} key ${k} is not a string` : E);
+        if (!path) {
+          break;
+        }
+      }
+    }
+  } else {
+    result.push(path ? `${path}:Record<string, string> must be an object` : E);
+  }
+  return result;
+}
+
+export type TestFunc = (o: any, required: boolean) => boolean;
+export type TestItemTest = TestFunc | boolean | string;
+export interface TestItem {
   required: boolean;
   fn: TestItemTest;
   member?: string;
@@ -32,7 +133,7 @@ interface TestItem {
    */
   message: string|null;
 }
-type TestItemTuple = [
+export type TestItemTuple = [
   required: boolean,
   fn: TestItemTest,
   message: string,
@@ -42,6 +143,68 @@ type TestItemTuple = [
   fn: TestItemTest,
   message: string
 ]|TestFunc
+
+export function doTests(
+  rop: ROP,
+  ...tests: (TestItem|TestItem[])[]
+): void {
+  const [result, o , path] = rop;
+  const tf = tests.flat();
+
+  const doTest = (
+    subject: unknown,
+    test: TestItemTest,
+    required: boolean = true
+  ): boolean => {
+    switch (typeof test) {
+    case 'function':
+      return (test as TestFunc)(subject, required);
+    case 'boolean':
+      return test as boolean;
+    case 'string':
+      switch (test as string) {
+      case NULLABLE_OBJECT:
+        return typeof subject === 'object';
+      case 'object':
+        return typeof subject === 'object' && subject !== null;
+      default:
+        return typeof subject === test;
+      }
+    default:
+      throw error(INTERNAL_ERROR);
+    }
+  }
+
+  while ((path || !result.length) && tf.length) {
+    const test = tf.shift();
+
+    if (test === undefined) throw error(INTERNAL_ERROR);
+
+    const subject: unknown = test.member
+      ? typeof o === 'object' && o !== null
+        ? (o as Record<any, unknown>)[test.member] as unknown
+        : undefined
+      : o;
+
+    if (subject === undefined && test.required === false) {
+      continue;
+    }
+
+    const subjectPath = path && test.member ? `${path}.${test.member}` : path;
+
+    if (!doTest(subject, test.fn, test.required)) {
+      // failed test
+      if (subjectPath) {
+        if (test.message !== null) {
+          result.push(format(test.message, subjectPath));
+        }
+      } else {
+        test.message && result.push(E);
+      }
+    }
+  }
+}
+
 export function itemsFromTuples(...tuples:TestItemTuple[]): TestItem[] {
   return tuples.map(t => {
     let result!:TestItem;
@@ -181,66 +344,20 @@ export function tva(
   }
 }
 
-type ROP = [
-  result:string[], o: unknown, path: string|undefined
-];
-export function doTests(
-  rop: ROP,
-  ...tests: (TestItem|TestItem[])[]
-): void {
-  const [result, o , path] = rop;
-  const tf = tests.flat();
-
-  const doTest = (
-    subject: unknown,
-    test: TestItemTest,
-    required: boolean = true
-  ): boolean => {
-    switch (typeof test) {
-    case 'function':
-      return (test as TestFunc)(subject, required);
-    case 'boolean':
-      return test as boolean;
-    case 'string':
-      switch (test as string) {
-      case NULLABLE_OBJECT:
-        return typeof subject === 'object';
-      case 'object':
-        return typeof subject === 'object' && subject !== null;
-      default:
-        return typeof subject === test;
-      }
-    default:
-      throw error(INTERNAL_ERROR);
-    }
-  }
-
-  while ((path || !result.length) && tf.length) {
-    const test = tf.shift();
-
-    if (test === undefined) throw error(INTERNAL_ERROR);
-
-    const subject: unknown = test.member
-      ? typeof o === 'object' && o !== null
-        ? (o as Record<any, unknown>)[test.member] as unknown
-        : undefined
-      : o;
-
-    if (subject === undefined && test.required === false) {
-      continue;
-    }
-
-    const subjectPath = path && test.member ? `${path}.${test.member}` : path;
-
-    if (!doTest(subject, test.fn, test.required)) {
-      // failed test
-      if (subjectPath) {
-        if (test.message !== null) {
-          result.push(format(test.message, subjectPath));
-        }
-      } else {
-        test.message && result.push(E);
-      }
-    }
-  }
+export function tvr(
+  result: string[],
+  fn:(o:any, path?: string) => string[],
+  path?: string,
+  member?: string|boolean,
+  required?: boolean
+): TestFunc {
+  return tv(
+    result,
+    (o: any, path?:string): string[] => {
+      return validateRecord_string_validator(fn, o, path);
+    },
+    path,
+    member,
+    required
+  )
 }

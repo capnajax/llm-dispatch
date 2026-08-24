@@ -12,6 +12,7 @@ export const errorCodes = {
     INTERNAL_ERROR: "Internal error",
     NOT_READY: "Not ready",
     // Codes used by the dispatcher that calls different AI endpoints
+    DISPATCH_INVALID_URL: "URL string failed to parse",
     DISPATCH_OFFLINE: "AI Endpoint is offline",
     DISPATCH_TIMEOUT: "Request timed out",
     DISPATCH_BODY_EMPTY: "Request body empty",
@@ -47,6 +48,7 @@ function isGeneralErrorCode(o) {
 }
 function isDispatchErrorCode(o) {
     return [
+        DISPATCH_INVALID_URL,
         DISPATCH_OFFLINE,
         DISPATCH_TIMEOUT,
         DISPATCH_BODY_EMPTY,
@@ -102,6 +104,10 @@ export const INTERNAL_ERROR = "INTERNAL_ERROR";
 export const NOT_READY = "NOT_READY";
 // dispatch
 // Codes used by the dispatcher that calls different AI endpoints
+/**
+ * Message: `URL string failed to parse`
+ */
+export const DISPATCH_INVALID_URL = "DISPATCH_INVALID_URL";
 /**
  * Message: `AI Endpoint is offline`
  * Status Code: 503

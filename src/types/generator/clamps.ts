@@ -5,7 +5,7 @@
  * Generator that converts a set of validators into asserts, typeclamps, and
  * tests. Assumes every exported validator has a type with the same name but
  * without the `validate` prefix, that is, a validateXYZ implies a type XYZ.
- * 
+ *
  * We're using the following naming convention:
  *  - `XYZ` is the type
  *  - `validateXYZ(o:any, path?: string): string[]` is a validator function. It
@@ -245,7 +245,7 @@ function findValidators(
     if (!extraParamsAreOptional) {
       continue;
     }
-    
+
     const param = params[0];
 
     if (param.getName() !== 'o') {
@@ -263,6 +263,16 @@ function findValidators(
 
     if (!returnType ||
         returnType.getText() !== 'string[]') {
+      continue;
+    }
+
+    const localType =
+      sourceFile.getTypeAlias(typeName) ??
+      sourceFile.getInterface(typeName) ??
+      sourceFile.getClass(typeName) ??
+      sourceFile.getEnum(typeName);
+
+    if (localType && !localType.isExported()) {
       continue;
     }
 
@@ -317,6 +327,10 @@ async function generateFile(
     '// THIS FILE IS GENERATED. DO NOT EDIT.'
   );
   lines.push('');
+  lines.push('import { Logger } from \'winston\'',
+    'import { FAILED_ASSERTION } from \'./error-codes.js\'',
+    'import { error } from \'../../lib/exceptions.js\''
+  );
 
   lines.push('import {');
 
@@ -419,6 +433,25 @@ async function generateFile(
   );
 }
 
+function functionHead(...parts:string[]): string[] {
+  let result!:string[];
+  if (parts.join('').length < 80) {
+    result = [parts.join('')];
+  } else if (parts.slice(0,3).join('').length < 80) {
+    result = [
+      parts.slice(0, 3).join(''),
+      parts[3]
+    ];
+  } else {
+    result = [
+      parts[0],
+      '  ' + parts[1],
+      parts.slice(2).join('')
+    ];
+  }
+  return result;
+}
+
 function generateValidatorFunctions(
   lines: string[],
   validator: Validator
@@ -429,31 +462,45 @@ function generateValidatorFunctions(
   } = validator;
 
   lines.push(
-    `export function is${typeName}(` +
-    'o: any',
-    `): o is ${typeName} {`,
+    ...functionHead(`export function is${typeName}(` +
+      'o: any',
+      ')',
+      `: o is ${typeName} {`
+    ),
     `  return ${functionName}(o).length === 0;`,
     '}',
     ''
   );
 
   lines.push(
-    `export function assert${typeName}(` +
-    'o: any',
-    `): asserts o is ${typeName} {`,
-    `  const errors = ${functionName}(o);`,
-    '',
+    ...functionHead(
+      `export function assert${typeName}(`,
+      'o: any, log?: Logger, path?: string',
+      ')',
+      `: asserts o is ${typeName} {`
+    ),
+    `  let errors = ${functionName}(o);`,
     '  if (errors.length) {',
-    "    throw new Error(errors.join('\\n'));",
+    '    if (log && log.isDebugEnabled()) {',
+    `      errors = ${functionName}(`,
+    `        o, path ?? '${typeName}'`,
+    '      );',
+    '      errors.forEach(log.debug);',
+    "      throw error(FAILED_ASSERTION, errors.join('\\n'));",
+    '    } else {',
+    '      throw error(FAILED_ASSERTION)',
+    '    }',
     '  }',
     '}',
     ''
   );
 
   lines.push(
-    `export function test${typeName}(` +
-    'o: any',
-    '): boolean {',
+    ...functionHead(
+      `export function test${typeName}(` +
+      'o: any',
+      ')' + ': boolean {'
+    ),
     `  return ${functionName}(o).length === 0;`,
     '}',
     ''

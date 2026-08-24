@@ -5,7 +5,7 @@
 
 import { Application, Request, Response } from "filamentjs";
 import { getLogger } from "../lib/logger.js";
-import { AppMeta, LOG_COLLAPSE, ServiceConfigMode } from "../types/types.js";
+import { AppMeta, ServiceConfigMode } from "../types/types.js";
 import { getConnectivityMode } from "../dispatch.js";
 import { end, failIfNotReady } from "../lib/http-tools.js";
 
@@ -18,11 +18,11 @@ export function registerRoutes(app: Application<AppMeta>) {
   log.verbose('Registering GET /health');
 
   // // Health check (handy for Continue diagnostics)
-  app.get("/health", LOG_COLLAPSE, async (req: Request<AppMeta>, res: Response) => {
+  app.get("/health", async (req: Request<AppMeta>, res: Response) => {
     if (!failIfNotReady(res)) {
       const message:Record<string, any> = {status: 'ok'};
       if (req.body) {
-        const ctHeader = req.headers.getHeader('Content-Type');
+        const ctHeader = req.headers.get('Content-Type');
         message.echo = {
           body: req.body.toString(),
           'Content-Type': ctHeader || 'application/json'
@@ -39,7 +39,7 @@ export function registerRoutes(app: Application<AppMeta>) {
     async (req: Request<AppMeta>, res: Response
   ) => {
     const log = getLogger(MODULE, 'PUT', req.path);
-    res.setHeader('Content-Type', 'application/json');
+    res.headers.set('Content-Type', 'application/json');
     let mode!:ServiceConfigMode
     let modeCheck:'always'|'recent'|'less' = 'less';
     if (req.path === "/v1/probe/force") {

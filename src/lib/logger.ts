@@ -7,8 +7,7 @@ import {
 } from '../types/logger-types.js';
 import { INTERNAL_ERROR } from '../types/generated/error-codes.js';
 import { error } from './exceptions.js';
-import { HTTP_METHODS } from './http-tools.js';
-import { ENDPOINT_LOG_FINALIZER } from '../middleware/endpoint-logging.js';
+import { ENDPOINT_LOG_FINALIZER, HTTP_METHODS } from './http-constants.js';
 
 const DEFAULT_LEVEL_CONFIG:LoggerLevelConfig = {
   level: 'info',

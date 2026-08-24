@@ -167,6 +167,13 @@ function findValidators(sourceFile) {
             returnType.getText() !== 'string[]') {
             continue;
         }
+        const localType = sourceFile.getTypeAlias(typeName) ??
+            sourceFile.getInterface(typeName) ??
+            sourceFile.getClass(typeName) ??
+            sourceFile.getEnum(typeName);
+        if (localType && !localType.isExported()) {
+            continue;
+        }
         validators.push({
             functionName: name,
             typeName
@@ -189,6 +196,7 @@ async function generateFile(sourceDir, outDir, sourceFile, validators) {
     const lines = [];
     lines.push('// THIS FILE IS GENERATED. DO NOT EDIT.');
     lines.push('');
+    lines.push('import { Logger } from \'winston\'', 'import { FAILED_ASSERTION } from \'./error-codes.js\'', 'import { error } from \'../../lib/exceptions.js\'');
     lines.push('import {');
     for (const validator of validators) {
         lines.push(`  ${validator.functionName},`);
@@ -236,14 +244,33 @@ async function generateFile(sourceDir, outDir, sourceFile, validators) {
     console.log(`${relativePath} -> ` +
         `${path.relative(outDir, outputPath)}`);
 }
+function functionHead(...parts) {
+    let result;
+    if (parts.join('').length < 80) {
+        result = [parts.join('')];
+    }
+    else if (parts.slice(0, 3).join('').length < 80) {
+        result = [
+            parts.slice(0, 3).join(''),
+            parts[3]
+        ];
+    }
+    else {
+        result = [
+            parts[0],
+            '  ' + parts[1],
+            parts.slice(2).join('')
+        ];
+    }
+    return result;
+}
 function generateValidatorFunctions(lines, validator) {
     const { functionName, typeName } = validator;
-    lines.push(`export function is${typeName}(` +
-        'o: any', `): o is ${typeName} {`, `  return ${functionName}(o).length === 0;`, '}', '');
-    lines.push(`export function assert${typeName}(` +
-        'o: any', `): asserts o is ${typeName} {`, `  const errors = ${functionName}(o);`, '', '  if (errors.length) {', "    throw new Error(errors.join('\\n'));", '  }', '}', '');
-    lines.push(`export function test${typeName}(` +
-        'o: any', '): boolean {', `  return ${functionName}(o).length === 0;`, '}', '');
+    lines.push(...functionHead(`export function is${typeName}(` +
+        'o: any', ')', `: o is ${typeName} {`), `  return ${functionName}(o).length === 0;`, '}', '');
+    lines.push(...functionHead(`export function assert${typeName}(`, 'o: any, log?: Logger, path?: string', ')', `: asserts o is ${typeName} {`), `  let errors = ${functionName}(o);`, '  if (errors.length) {', '    if (log && log.isDebugEnabled()) {', `      errors = ${functionName}(`, `        o, path ?? '${typeName}'`, '      );', '      errors.forEach(log.debug);', "      throw error(FAILED_ASSERTION, errors.join('\\n'));", '    } else {', '      throw error(FAILED_ASSERTION)', '    }', '  }', '}', '');
+    lines.push(...functionHead(`export function test${typeName}(` +
+        'o: any', ')' + ': boolean {'), `  return ${functionName}(o).length === 0;`, '}', '');
 }
 function makeImportPath(outputPath, sourcePath) {
     let relative = path.relative(path.dirname(outputPath), sourcePath);

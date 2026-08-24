@@ -102,12 +102,12 @@ export function error(
       for (const hk in h) {
         const hv = h[hk];
         if (typeof hv === 'string' || Array.isArray(hv)) {
-          useRes.setHeader(hk, hv);
+          useRes.headers.set(hk, hv);
         } else {
           if (hv.action === 'add') {
-            useRes.addHeader(hk, hv.value);
+            useRes.headers.set(hk, hv.value);
           } else {
-            useRes.setHeader(hk, hv.value);
+            useRes.headers.set(hk, hv.value);
           }
         }
       }

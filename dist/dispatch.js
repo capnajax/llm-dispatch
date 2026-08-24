@@ -4,9 +4,10 @@ import { aiEndpointRequest, checkHealth, createHtRequest, parseRequestBody } fro
 import { getLogger } from "./lib/logger.js";
 import { DISPATCH_OFFLINE, ERROR, isErrorCode, REQ_BODY_EMPTY } from "./types/generated/error-codes.js";
 import { isCreateChatCompletionRequest } from "./types/generated/openai-types-clamps.js";
-import { isOnlineServiceConfigMode } from "./types/types.js";
-import { getPromptConfigData } from "./prompts/prompts.js";
-import { parseIntent, parseSatisfaction } from "./prompts/prompts-types.js";
+import { isOnlineServiceConfigMode, validateServiceConfigMode } from "./types/types.js";
+import { getPromptConfigData } from './prompts/prompts.js';
+import { parseIntent, parseSatisfaction } from './prompts/response-parsers.js';
+import { inspect } from 'node:util';
 // import probe from "./probe.js"
 const MODULE = 'dispatch';
 const ERROR_MODE = { name: 'error', displayName: 'ERROR', icon: 'empty' };
@@ -15,10 +16,15 @@ let connectivityModeProbe = {
     lastCheck: 0, result: null
 };
 export async function classifyByIntent(messages) {
+    const log = getLogger(MODULE, classifyByIntent);
     const connectivityMode = await getConnectivityMode('less');
+    log.silly('connectivityMode: %s', JSON.stringify(connectivityMode));
     if (!isOnlineServiceConfigMode(connectivityMode)) {
+        log.debug('is NOT online service config mode');
+        validateServiceConfigMode(connectivityMode, '[intent]').forEach(log.error);
         throw error(DISPATCH_OFFLINE);
     }
+    log.debug('is online service config mode');
     const pc = (await getPromptConfigData()).prompts.intent;
     const requestBody = {
         ...(pc.parameters),
@@ -26,6 +32,7 @@ export async function classifyByIntent(messages) {
     };
     pc.grammar && (requestBody.grammar = pc.grammar);
     const result = await aiEndpointRequest('classify', BACKEND_COMPLETIONS_PATH, requestBody, {}, parseIntent);
+    log.silly('result: %s', JSON.stringify(result));
     return result;
 }
 export async function classifyBySatisfaction(messages) {
@@ -60,7 +67,7 @@ export async function dispatch(req, res) {
     log.silly('request body: %s', requestBody);
     let dispatchMessages = [...requestBody.messages];
     let dispatchEndpoint = 'default';
-    res.setHeader('Content-Type', 'application/json');
+    res.headers.set('Content-Type', 'application/json');
     const serviceConfigMode = await getConnectivityMode('less');
     if (await isOnline(serviceConfigMode)) {
         log.debug('Service online, mode: %s', serviceConfigMode.name);
@@ -151,18 +158,28 @@ export async function dispatch(req, res) {
                 method: 'POST',
                 headers: backendHeaders.flat()
             };
-            const dispatchRequest = createHtRequest(dispatchUrl, dispatchOptions, dispatchResponse => {
-                dispatchResponse.on('data', chunk => {
-                    res.sendChunk(chunk);
+            log.silly('dispatchUrl: %s', dispatchUrl);
+            log.silly('dispatchOptions: %s', inspect(dispatchOptions));
+            log.silly('req.headers %s', JSON.stringify(req.headers));
+            await new Promise((resolve, reject) => {
+                const dispatchRequest = createHtRequest(dispatchUrl, dispatchOptions, async (dispatchResponse) => {
+                    try {
+                        for await (const chunk of dispatchResponse) {
+                            log.silly('Got chunk: %s', chunk.toString());
+                            res.sendChunk(chunk);
+                            log.silly('Chunk sent');
+                        }
+                        log.silly('Ending');
+                        res.end();
+                        log.verbose('Response complete');
+                    }
+                    catch (error) {
+                        reject(error);
+                    }
                 });
-                dispatchResponse.on('end', () => {
-                    log.verbose('Response complete');
-                    res.end();
-                });
+                dispatchRequest.once('error', reject);
+                dispatchRequest.end(backendBodyBuffer);
             });
-            dispatchRequest.write(backendBodyBuffer);
-            dispatchRequest.end();
-            log.verbose('Sent request');
         }
         catch (e) {
             if (e instanceof Error) {

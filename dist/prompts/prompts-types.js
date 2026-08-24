@@ -46,7 +46,7 @@ export function isSatisfaction(o) {
 }
 /**
  * Parse the satisfaction object from the format it would come in from the
- * service. If the object fails to parse, it returns an error code instead of an
+ * service. If the object fails to parse, it returns an error code instead of a
  * `Satisfaction` object
  * @param buf the data to parse.
  */

@@ -206,14 +206,12 @@ function generate(specs) {
         if (type) {
             result.types[specName] = type;
         }
-        if (runConfig.types.export.includes(specName)) {
-            log.info(`Generating validator for ${specName}`);
-            result.validators[specName] =
-                `export function validate${specName}(` +
-                    `o: any, path?: string): string[] {\n` +
-                    `  return checkNamed(${JSON.stringify(specName)}, o, path);\n` +
-                    `}`;
-        }
+        log.info(`Generating validator for ${specName}`);
+        result.validators[specName] =
+            `export function validate${specName}(` +
+                `o: any, path?: string): string[] {\n` +
+                `  return checkNamed(${JSON.stringify(specName)}, o, path);\n` +
+                `}`;
     }
     if (process.argv[3]) {
         const filename = `${process.argv[3]}.ts`;

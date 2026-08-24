@@ -29,15 +29,13 @@ import {
   BasePathType,
   isOnlineServiceConfigMode,
   OnlineServiceConfigMode,
-  ServiceConfigMode
+  ServiceConfigMode,
+  validateServiceConfigMode
 } from "./types/types.js"
-import { getPromptConfigData } from "./prompts/prompts.js"
-import {
-  Intent,
-  parseIntent,
-  parseSatisfaction,
-  Satisfaction
-} from "./prompts/prompts-types.js"
+import { Intent, Satisfaction } from './types/validators/prompts.js';
+import { getPromptConfigData } from './prompts/prompts.js';
+import { parseIntent, parseSatisfaction } from './prompts/response-parsers.js';
+import { inspect } from 'node:util';
 // import probe from "./probe.js"
 
 const MODULE = 'dispatch';
@@ -75,10 +73,15 @@ let connectivityModeProbe:ModeProbe<ServiceConfigMode> = {
 export async function classifyByIntent(
   messages: ChatCompletionRequestMessage[]
 ): Promise<Intent|ErrorCode> {
+  const log = getLogger(MODULE, classifyByIntent);
   const connectivityMode = await getConnectivityMode('less');
+  log.silly('connectivityMode: %s', JSON.stringify(connectivityMode));
   if (!isOnlineServiceConfigMode(connectivityMode)) {
+    log.debug('is NOT online service config mode');
+    validateServiceConfigMode(connectivityMode, '[intent]').forEach(log.error);
     throw error(DISPATCH_OFFLINE);
   }
+  log.debug('is online service config mode');
   const pc = (await getPromptConfigData()).prompts.intent;
   const requestBody:Record<string, any> = {
     ... (pc.parameters),
@@ -89,6 +92,8 @@ export async function classifyByIntent(
   const result = await aiEndpointRequest<Intent>(
     'classify', BACKEND_COMPLETIONS_PATH, requestBody, {}, parseIntent
   );
+
+  log.silly('result: %s', JSON.stringify(result));
 
   return result;
 }
@@ -137,7 +142,7 @@ export async function dispatch(req:Request<AppMeta>, res:Response)
     [ ... requestBody.messages ];
   let dispatchEndpoint:BasePathType = 'default';
 
-  res.setHeader('Content-Type', 'application/json');
+  res.headers.set('Content-Type', 'application/json');
   const serviceConfigMode = await getConnectivityMode('less');
   if (await isOnline(serviceConfigMode)) {
     log.debug('Service online, mode: %s', serviceConfigMode.name)
@@ -241,19 +246,30 @@ export async function dispatch(req:Request<AppMeta>, res:Response)
         headers: backendHeaders.flat()
       }
 
-      const dispatchRequest = createHtRequest(
-        dispatchUrl, dispatchOptions, dispatchResponse => {
-          dispatchResponse.on('data', chunk => {
-            res.sendChunk(chunk);
-          });
-          dispatchResponse.on('end', () => {
-            log.verbose('Response complete')
-            res.end();
-          })
+      log.silly('dispatchUrl: %s', dispatchUrl);
+      log.silly('dispatchOptions: %s', inspect(dispatchOptions));
+      log.silly('req.headers %s', JSON.stringify(req.headers));
+
+      await new Promise<void>((resolve, reject) => {
+        const dispatchRequest = createHtRequest(
+          dispatchUrl, dispatchOptions, async dispatchResponse => {
+            try {
+              for await (const chunk of dispatchResponse) {
+                log.silly('Got chunk: %s', chunk.toString());
+                res.sendChunk(chunk);
+                log.silly('Chunk sent');
+              }
+              log.silly('Ending');
+              res.end();
+              log.verbose('Response complete');            
+          } catch (error) {
+            reject(error)
+          }
         });
-      dispatchRequest.write(backendBodyBuffer);
-      dispatchRequest.end();
-      log.verbose('Sent request');
+
+        dispatchRequest.once('error', reject);
+        dispatchRequest.end(backendBodyBuffer);
+      });
 
     } catch(e) {
       if (e instanceof Error) {

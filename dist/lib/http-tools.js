@@ -4,12 +4,9 @@ import Readiness from "./readiness.js";
 import { isOnlineServiceConfigMode } from "../types/connectivity-types.js";
 import { getConnectivityMode } from "../dispatch.js";
 import { error } from "./exceptions.js";
-import { DISPATCH_HTTP_ERROR, FAILED_ASSERTION, INTERNAL_ERROR, NET_INVALID_URL, NET_SCHEME, REQ_BODY_EMPTY, REQ_BODY_PARSE, REQ_BODY_TYPE } from '../types/generated/error-codes.js';
+import { DISPATCH_HTTP_ERROR, DISPATCH_OFFLINE, FAILED_ASSERTION, INTERNAL_ERROR, NET_INVALID_URL, NET_SCHEME, REQ_BODY_EMPTY, REQ_BODY_PARSE, REQ_BODY_TYPE } from '../types/generated/error-codes.js';
+import { getLogger } from './logger.js';
 const MODULE = 'http-tools';
-// HTTP methods for detection
-export const HTTP_METHODS = new Set([
-    'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'
-]);
 /**
  * Sends a POST request to the provided endpoint with the given data and returns its JSON body.
  * @param {BasePathType} endpoint the type of endpoint Base URL to call.
@@ -19,13 +16,16 @@ export const HTTP_METHODS = new Set([
  * @returns {Promise<object>} A promise that resolves with the JSON body of the response.
  */
 export async function aiEndpointRequest(endpoint, urlPath, data, headers = {}, parseT) {
+    const log = getLogger(MODULE, aiEndpointRequest);
+    log.debug('aiEndpointRequest called');
     const connectivityMode = await getConnectivityMode('less');
     let modeBase = endpoint;
     if (!isOnlineServiceConfigMode(connectivityMode)) {
-        throw 'Offline';
+        throw error(DISPATCH_OFFLINE);
     }
     const basePath = connectivityMode.basePaths[modeBase];
     const url = new URL(urlPath, basePath);
+    log.debug('Setting up aiEndpoitnRequest');
     // Set the default headers  
     const bodyBuffer = Buffer.from(JSON.stringify(data));
     const useHeaders = {
@@ -38,17 +38,20 @@ export async function aiEndpointRequest(endpoint, urlPath, data, headers = {}, p
     };
     // Add the provided headers to the default headers
     Object.assign(useHeaders, headers);
+    log.debug('sending request');
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers,
             body: JSON.stringify(data),
         });
+        log.debug('checking response');
         // Check if the response was successful
         if (!response.ok) {
             throw error(DISPATCH_HTTP_ERROR);
         }
         const result = parseT((await response.json())?.choices?.[0]?.message?.content);
+        log.debug('sending response %s', JSON.stringify(result));
         // Return the JSON body of the response
         return result;
     }
@@ -83,16 +86,16 @@ export function end(res, statusCode, content, contentType) {
     if (content) {
         // Content-Type header
         if (contentType) {
-            res.setHeader('Content-Type', contentType);
+            res.headers.set('Content-Type', contentType);
         }
-        else if (res.getHeader('Content-Type') === null) {
-            res.setHeader('Content-Type', 'application/json');
+        else if (res.headers.get('Content-Type') === null) {
+            res.headers.set('Content-Type', 'application/json');
         }
         // Content-Length header
         if (typeof content === 'string') {
             content = Buffer.from(content);
         }
-        res.setHeader('Content-Length', `${content.byteLength}`);
+        res.headers.set('Content-Length', `${content.byteLength}`);
         // send response
         res.send(content);
     }
@@ -110,7 +113,7 @@ export function end(res, statusCode, content, contentType) {
 export function failIfNotReady(res) {
     if (!Readiness.isReady) {
         if (res) {
-            res.setHeader('Retry-After', '2');
+            res.headers.set('Retry-After', '2');
             return end(res, 503);
         }
         else {
@@ -160,11 +163,44 @@ export function parseRequestBody(req, res, isOfTypeT) {
 export function createHtRequest(url, options, callback) {
     const httpProtocol = { adapter: http, name: 'http' };
     const httpsProtocol = { adapter: https, name: 'https' };
+    const parseUrl = (urlString) => {
+        const result = URL.parse(urlString);
+        if (!result) {
+            throw error(NET_INVALID_URL, { details: urlString });
+        }
+        return result;
+    };
+    const URL_NOT_PROVIDED = 'URL_NOT_PROVIDED';
+    // normalize parameters
+    const parameters = [
+        url, options, callback
+    ];
+    if (typeof parameters[0] === 'string') {
+        parameters[0] = parseUrl(parameters[0]);
+    }
+    else if (!(parameters[0] instanceof URL)) {
+        parameters.unshift(undefined);
+    }
+    if (typeof parameters[1] === 'function') {
+        parameters.splice(1, 0, {});
+    }
+    options = parameters[1];
+    if (parameters[0] === undefined) {
+        parameters[0] = 'URL_NOT_PROVIDED';
+    }
+    url = parameters[0];
+    callback = parameters[2];
     const schemeToAdapter = (scheme) => {
         const protocols = {
             http: httpProtocol,
             https: httpsProtocol
         };
+        if (typeof scheme !== 'string') {
+            scheme = 'http';
+        }
+        else {
+            scheme = scheme.replace(/:$/, '');
+        }
         const useAdapter = protocols[scheme];
         if (useAdapter) {
             return useAdapter;
@@ -177,99 +213,33 @@ export function createHtRequest(url, options, callback) {
             });
         }
     };
-    function assertURLObject(o) {
-        if (!(o instanceof URL)) {
-            throw error(FAILED_ASSERTION, { details: 'assertURLObject' });
-        }
-        ;
+    // assertions to clamp types
+    if (!(url instanceof URL) && url !== 'URL_NOT_PROVIDED') {
+        throw error(FAILED_ASSERTION, 'url not a url object');
     }
-    const makeEmptyOptions = () => {
-        switch (adapter.name) {
-            case 'http':
-                return {};
-            case 'https':
-                return {};
-            default:
-                throw error(INTERNAL_ERROR);
-        }
-    };
-    const parseUrl = (urlString) => {
-        const result = URL.parse(urlString);
-        if (!result) {
-            throw error(NET_INVALID_URL, { details: urlString });
-        }
-        return result;
-    };
+    if (typeof options !== 'object' || options === null) {
+        throw error(FAILED_ASSERTION, 'options of createHtRequest is not an object');
+    }
+    if (typeof callback !== 'function') {
+        throw error(FAILED_ASSERTION, 'callback of createHtRequest is not a function');
+    }
     // fix the parameters. Put URL details into the options, and callback is the
     // only callback. After this if block, url is ignored.
-    let adapter = httpProtocol;
-    let useUrl; // null means the URL is derived from the options
-    let useOptions;
-    let useCallback = undefined;
-    const setUseUrl = (url) => {
-        if (typeof url === 'string') {
-            useUrl = parseUrl(url);
-        }
-        else {
-            assertURLObject(url);
-            useUrl = url;
-        }
-        adapter = schemeToAdapter(useUrl.protocol);
-    };
-    const setUseOptions = (options) => {
-        if (typeof options === 'object' && options != null) {
-            useOptions = options;
-        }
-        else {
-            throw error(FAILED_ASSERTION, 'options of createHtRequest(url, options, callback) is not an object');
-        }
-    };
-    const setUseCallback = (callback) => {
-        if (typeof callback === 'object' || callback === undefined) {
-            useCallback = callback;
-        }
-        else {
-            throw error(FAILED_ASSERTION, 'callback of createHtRequest(url, options, callback) is not a function');
-        }
-    };
-    if (callback) {
-        // guaranteed three parameter
-        setUseUrl(url);
-        setUseOptions(options);
-        setUseCallback(callback);
-    }
-    else if ((url instanceof URL) || (typeof URL === 'string')) {
-        if (typeof url === 'string' || url instanceof URL) {
-            setUseUrl(url);
-            if (typeof options === 'function') {
-                setUseOptions(makeEmptyOptions());
-                setUseCallback(options);
-            }
-            else {
-                setUseOptions(options);
-            }
-        }
-        else {
-            useUrl = null;
-            adapter = httpProtocol;
-            setUseOptions(url);
-            setUseCallback(options);
-        }
-    }
+    let adapter = schemeToAdapter((url === URL_NOT_PROVIDED) ? options.protocol : url.protocol);
     switch (adapter.name) {
         case 'http':
-            if (useUrl) {
-                return http.request(useUrl, useOptions, useCallback);
+            if (url) {
+                return http.request(url, options, callback);
             }
             else {
-                return http.request(useOptions, useCallback);
+                return http.request(options, callback);
             }
         case 'https':
-            if (useUrl) {
-                return https.request(useUrl, useOptions, useCallback);
+            if (url) {
+                return https.request(url, options, callback);
             }
             else {
-                return https.request(useOptions, useCallback);
+                return https.request(options, callback);
             }
         default:
             throw error(INTERNAL_ERROR);

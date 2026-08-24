@@ -1,18 +1,26 @@
 import { createApp } from "filamentjs";
+import * as requestLogging from "@filamentjs/request-logging";
 import { registerRoutes as metaRoutes } from "./routes/meta.js";
 import { registerRoutes as openAiRoutes } from "./routes/openai.js";
 import { registerRoutes as wwwRoutes } from "./routes/www.js";
-import { defaultMeta } from "./types/types.js";
 import { getLogger } from "./lib/logger.js";
 import { format } from "node:util";
-import setupLogging from "./middleware/endpoint-logging.js";
 const MODULE = 'server';
+const defaultAppMeta = {
+    application: {
+        maxRequestSize: '1MiB',
+        observability: {
+            enabled: true
+        }
+    }
+};
+const defaultContextMeta = {};
 export default function startServer() {
     const log = getLogger(MODULE, startServer);
     log.debug('Creating app');
-    const app = createApp(defaultMeta);
+    const app = createApp(defaultAppMeta, defaultContextMeta);
     log.debug('Setting up middleware');
-    setupLogging(app);
+    requestLogging.setup(app);
     log.debug('Registering routes');
     metaRoutes(app);
     openAiRoutes(app);

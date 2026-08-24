@@ -1,9 +1,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import yaml from 'yaml';
-import { openAIRoleTypes } from './prompts-types.js';
 import { getLogger } from '../lib/logger.js';
 import { extend } from '../lib/tools.js';
+import { isOpenAIRoleType } from '../types/generated/prompts-clamps.js';
 const MODULE = 'prompts';
 const DEFAULT_REQUEST_PARAMS = {
     max_tokens: 100,
@@ -60,14 +60,15 @@ export async function loadPromptsConfig() {
                     if (typeof pv.message === 'object') {
                         let role = 'system';
                         if (typeof pv.message.role === 'string' &&
-                            openAIRoleTypes.includes(pv.message.role)) {
+                            isOpenAIRoleType(pv.message.role)) {
                             role = 'system';
                         }
                         else {
                             log.error(`Invalid message role in prompt "${pk}"`);
                         }
                         if (typeof pv.message.content === 'string') {
-                            resultValue.message = { role, content: pv.message.content };
+                            resultValue.message = { role,
+                                content: pv.message.content };
                         }
                         else {
                             log.error(`Invalid or missing message content in prompt "${pk}"`);
@@ -86,7 +87,8 @@ export async function loadPromptsConfig() {
                 }
                 else {
                     log.error(`Message required in prompt "${pk}"`);
-                    resultValue.message = { role: 'system', content: 'error' };
+                    resultValue.message = { role: 'system',
+                        content: 'error' };
                 }
                 result.prompts[pk] = resultValue;
             }

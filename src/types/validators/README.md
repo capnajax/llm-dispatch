@@ -75,11 +75,13 @@ Discovery is deliberately syntactic. A function qualifies only when:
 - it is exported;
 - its first parameter is named `o` and explicitly typed `any`;
 - any additional parameters are optional or have default values; and
-- its return type is explicitly written as `string[]`.
+- its return type is explicitly written as `string[]`; and
+- its matching local type, when locally declared, is exported.
 
 For `validateXYZ`, the generator looks for an exported local type named `XYZ`
-or a named import of that type. A validator with a different parameter or
-return annotation may still be useful to application code, but it will not
+or a named import of that type. An exported validator for a non-exported local
+type remains available to application code but does not produce clamps. A
+validator with a different parameter or return annotation likewise does not
 produce clamps.
 
 Run the project generator after adding or changing the exported validator set:

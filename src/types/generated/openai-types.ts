@@ -1312,6 +1312,297 @@ interface WebSearchLocation {
   timezone?: string;
 }
 
+export function validateChatCompletionAllowedTools(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionAllowedTools', o, path);
+}
+
+export function validateChatCompletionAllowedToolsChoice(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionAllowedToolsChoice', o, path);
+}
+
+export function validateChatCompletionFunctionCallOption(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionFunctionCallOption', o, path);
+}
+
+export function validateChatCompletionFunctions(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionFunctions', o, path);
+}
+
+export function validateChatCompletionMessageCustomToolCall(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionMessageCustomToolCall', o, path);
+}
+
+export function validateChatCompletionMessageToolCall(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionMessageToolCall', o, path);
+}
+
+export function validateChatCompletionMessageToolCallChunk(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionMessageToolCallChunk', o, path);
+}
+
+export function validateChatCompletionMessageToolCalls(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionMessageToolCalls', o, path);
+}
+
+export function validateChatCompletionNamedToolChoice(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionNamedToolChoice', o, path);
+}
+
+export function validateChatCompletionNamedToolChoiceCustom(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionNamedToolChoiceCustom', o, path);
+}
+
+export function validateChatCompletionRequestAssistantMessage(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestAssistantMessage', o, path);
+}
+
+export function validateChatCompletionRequestAssistantMessageContentPart(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed(
+    'ChatCompletionRequestAssistantMessageContentPart',
+    o,
+    path,
+  );
+}
+
+export function validateChatCompletionRequestDeveloperMessage(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestDeveloperMessage', o, path);
+}
+
+export function validateChatCompletionRequestFunctionMessage(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestFunctionMessage', o, path);
+}
+
+export function validateChatCompletionRequestMessageContentPartAudio(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestMessageContentPartAudio', o, path);
+}
+
+export function validateChatCompletionRequestMessageContentPartFile(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestMessageContentPartFile', o, path);
+}
+
+export function validateChatCompletionRequestMessageContentPartImage(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestMessageContentPartImage', o, path);
+}
+
+export function validateChatCompletionRequestMessageContentPartRefusal(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestMessageContentPartRefusal', o, path);
+}
+
+export function validateChatCompletionRequestMessageContentPartText(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestMessageContentPartText', o, path);
+}
+
+export function validateChatCompletionRequestSystemMessage(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestSystemMessage', o, path);
+}
+
+export function validateChatCompletionRequestSystemMessageContentPart(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestSystemMessageContentPart', o, path);
+}
+
+export function validateChatCompletionRequestToolMessage(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestToolMessage', o, path);
+}
+
+export function validateChatCompletionRequestToolMessageContentPart(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestToolMessageContentPart', o, path);
+}
+
+export function validateChatCompletionRequestUserMessage(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestUserMessage', o, path);
+}
+
+export function validateChatCompletionRequestUserMessageContentPart(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionRequestUserMessageContentPart', o, path);
+}
+
+export function validateChatCompletionResponseMessage(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionResponseMessage', o, path);
+}
+
+export function validateChatCompletionStreamOptions(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionStreamOptions', o, path);
+}
+
+export function validateChatCompletionTokenLogprob(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionTokenLogprob', o, path);
+}
+
+export function validateChatCompletionTool(o: any, path?: string): string[] {
+  return checkNamed('ChatCompletionTool', o, path);
+}
+
+export function validateChatCompletionToolChoiceOption(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ChatCompletionToolChoiceOption', o, path);
+}
+
+export function validateCompletionUsage(o: any, path?: string): string[] {
+  return checkNamed('CompletionUsage', o, path);
+}
+
+export function validateCreateModelResponseProperties(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('CreateModelResponseProperties', o, path);
+}
+
+export function validateCustomToolChatCompletions(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('CustomToolChatCompletions', o, path);
+}
+
+export function validateFunctionObject(o: any, path?: string): string[] {
+  return checkNamed('FunctionObject', o, path);
+}
+
+export function validateFunctionParameters(o: any, path?: string): string[] {
+  return checkNamed('FunctionParameters', o, path);
+}
+
+export function validateMetadata(o: any, path?: string): string[] {
+  return checkNamed('Metadata', o, path);
+}
+
+export function validateModelIdsShared(o: any, path?: string): string[] {
+  return checkNamed('ModelIdsShared', o, path);
+}
+
+export function validateModelResponseProperties(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ModelResponseProperties', o, path);
+}
+
+export function validateParallelToolCalls(o: any, path?: string): string[] {
+  return checkNamed('ParallelToolCalls', o, path);
+}
+
+export function validatePredictionContent(o: any, path?: string): string[] {
+  return checkNamed('PredictionContent', o, path);
+}
+
+export function validateResponseFormatJsonSchemaSchema(
+  o: any,
+  path?: string,
+): string[] {
+  return checkNamed('ResponseFormatJsonSchemaSchema', o, path);
+}
+
+export function validateResponseModalities(o: any, path?: string): string[] {
+  return checkNamed('ResponseModalities', o, path);
+}
+
+export function validateServiceTier(o: any, path?: string): string[] {
+  return checkNamed('ServiceTier', o, path);
+}
+
+export function validateStopConfiguration(o: any, path?: string): string[] {
+  return checkNamed('StopConfiguration', o, path);
+}
+
+export function validateVerbosity(o: any, path?: string): string[] {
+  return checkNamed('Verbosity', o, path);
+}
+
+export function validateWebSearchContextSize(o: any, path?: string): string[] {
+  return checkNamed('WebSearchContextSize', o, path);
+}
+
+export function validateWebSearchLocation(o: any, path?: string): string[] {
+  return checkNamed('WebSearchLocation', o, path);
+}
+
 type ValidationSpec = {
   type: string;
   nullable?: boolean;

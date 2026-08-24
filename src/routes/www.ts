@@ -22,8 +22,8 @@ const mimeTypes: Record<string, string> = {
 async function sendFile(res: Response, relativePath: string, immutable = false): Promise<void> {
   try {
     const body = await readFile(join(webRoot, relativePath));
-    res.setHeader("Content-Type", mimeTypes[extname(relativePath)] ?? "application/octet-stream");
-    res.setHeader("Cache-Control", immutable ? "public, max-age=31536000, immutable" : "no-cache");
+    res.headers.set("Content-Type", mimeTypes[extname(relativePath)] ?? "application/octet-stream");
+    res.headers.set("Cache-Control", immutable ? "public, max-age=31536000, immutable" : "no-cache");
     await res.send(body);
   } catch (error) {
     getLogger(MODULE, sendFile).error("Unable to serve web asset %s: %s", relativePath, error);
